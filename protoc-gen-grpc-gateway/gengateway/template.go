@@ -117,7 +117,6 @@ func applyTemplate(p param, reg *descriptor.Registry) (string, error) {
 
 	var targetServices []*descriptor.Service
 	handlerBuf := bytes.NewBuffer(nil)
-	var methodSeen bool
 	for _, svc := range p.Services {
 		var methodWithBindingsSeen bool
 		svcName := strings.Title(*svc.Name)
