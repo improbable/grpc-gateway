@@ -14,6 +14,7 @@ import (
 type param struct {
 	*descriptor.File
 	Imports []descriptor.GoPackage
+	generateEmpty bool
 }
 
 type binding struct {
@@ -83,7 +84,7 @@ func applyTemplate(p param) (string, error) {
 			}
 		}
 	}
-	if !methodSeen {
+	if !methodSeen && !p.generateEmpty {
 		return "", errNoTargetService
 	}
 	if err := trailerTemplate.Execute(w, p.Services); err != nil {

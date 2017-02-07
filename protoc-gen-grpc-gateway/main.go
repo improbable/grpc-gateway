@@ -16,6 +16,7 @@ import (
 
 var (
 	importPrefix = flag.String("import_prefix", "", "prefix to be added to go package paths for imported proto files")
+	generateEmpty = flag.Bool("generate_empty", false, "generate empty .pb.gw.go file for files with no target service defined")
 )
 
 func parseReq(r io.Reader) (*plugin.CodeGeneratorRequest, error) {
@@ -65,7 +66,7 @@ func main() {
 		}
 	}
 
-	g := gengateway.New(reg)
+	g := gengateway.New(reg, *generateEmpty)
 
 	reg.SetPrefix(*importPrefix)
 	if err := reg.Load(req); err != nil {
