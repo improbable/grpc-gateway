@@ -114,7 +114,10 @@ func applyTemplate(p param, reg *descriptor.Registry) (string, error) {
 	if err := headerTemplate.Execute(w, p); err != nil {
 		return "", err
 	}
+
 	var targetServices []*descriptor.Service
+	handlerBuf := bytes.NewBuffer(nil)
+	var methodSeen bool
 	for _, svc := range p.Services {
 		var methodWithBindingsSeen bool
 		svcName := strings.Title(*svc.Name)
@@ -125,7 +128,7 @@ func applyTemplate(p param, reg *descriptor.Registry) (string, error) {
 			meth.Name = &methName
 			for _, b := range meth.Bindings {
 				methodWithBindingsSeen = true
-				if err := handlerTemplate.Execute(w, binding{Binding: b, Registry: reg}); err != nil {
+				if err := handlerTemplate.Execute(handlerBuf, binding{Binding: b, Registry: reg}); err != nil {
 					return "", err
 				}
 			}
@@ -136,7 +139,14 @@ func applyTemplate(p param, reg *descriptor.Registry) (string, error) {
 	}
 
 	if len(targetServices) == 0 {
+		if p.generateEmpty {
+			return w.String(), nil
+		}
 		return "", errNoTargetService
+	}
+
+	if err := importsTemplate.Execute(w, p); err != nil {
+		return "", err
 	}
 
 	tp := trailerParams{
@@ -144,6 +154,9 @@ func applyTemplate(p param, reg *descriptor.Registry) (string, error) {
 		UseRequestContext:  p.UseRequestContext,
 		RegisterFuncSuffix: p.RegisterFuncSuffix,
 	}
+
+	handlerBuf.WriteTo(w)
+
 	if err := trailerTemplate.Execute(w, tp); err != nil {
 		return "", err
 	}
@@ -160,6 +173,9 @@ Package {{.GoPkg.Name}} is a reverse proxy.
 
 It translates gRPC into RESTful JSON APIs.
 */
+`))
+
+	importsTemplate = template.Must(template.New("imports").Parse(`
 package {{.GoPkg.Name}}
 import (
 	{{range $i := .Imports}}{{if $i.Standard}}{{$i | printf "%s\n"}}{{end}}{{end}}
