@@ -78,7 +78,10 @@ func applyTemplate(p param) (string, error) {
 	if err := headerTemplate.Execute(w, p); err != nil {
 		return "", err
 	}
+
 	var targetServices []*descriptor.Service
+	handlerBuf := bytes.NewBuffer(nil)
+	var methodSeen bool
 	for _, svc := range p.Services {
 		var methodWithBindingsSeen bool
 		for _, meth := range svc.Methods {
@@ -87,7 +90,7 @@ func applyTemplate(p param) (string, error) {
 			meth.Name = &methName
 			for _, b := range meth.Bindings {
 				methodWithBindingsSeen = true
-				if err := handlerTemplate.Execute(w, binding{Binding: b}); err != nil {
+				if err := handlerTemplate.Execute(handlerBuf, binding{Binding: b}); err != nil {
 					return "", err
 				}
 			}
@@ -98,13 +101,23 @@ func applyTemplate(p param) (string, error) {
 	}
 
 	if len(targetServices) == 0 {
+		if p.generateEmpty {
+			return w.String(), nil
+		}
 		return "", errNoTargetService
+	}
+
+	if err := importsTemplate.Execute(w, p); err != nil {
+		return "", err
 	}
 
 	tp := trailerParams{
 		Services:          targetServices,
 		UseRequestContext: p.UseRequestContext,
 	}
+
+	handlerBuf.WriteTo(w)
+
 	if err := trailerTemplate.Execute(w, tp); err != nil {
 		return "", err
 	}
@@ -121,6 +134,9 @@ Package {{.GoPkg.Name}} is a reverse proxy.
 
 It translates gRPC into RESTful JSON APIs.
 */
+`))
+
+	importsTemplate = template.Must(template.New("imports").Parse(`
 package {{.GoPkg.Name}}
 import (
 	{{range $i := .Imports}}{{if $i.Standard}}{{$i | printf "%s\n"}}{{end}}{{end}}
