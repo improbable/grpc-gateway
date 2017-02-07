@@ -16,6 +16,7 @@ type param struct {
 	Imports            []descriptor.GoPackage
 	UseRequestContext  bool
 	RegisterFuncSuffix string
+	generateEmpty      bool
 }
 
 type binding struct {
@@ -133,6 +134,7 @@ func applyTemplate(p param, reg *descriptor.Registry) (string, error) {
 			targetServices = append(targetServices, svc)
 		}
 	}
+
 	if len(targetServices) == 0 {
 		return "", errNoTargetService
 	}

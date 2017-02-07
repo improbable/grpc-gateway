@@ -32,10 +32,11 @@ type generator struct {
 	useRequestContext  bool
 	registerFuncSuffix string
 	pathType           pathType
+	generateEmpty      bool
 }
 
 // New returns a new generator which generates grpc gateway files.
-func New(reg *descriptor.Registry, useRequestContext bool, registerFuncSuffix, pathTypeString string) gen.Generator {
+func New(reg *descriptor.Registry, useRequestContext bool, registerFuncSuffix, pathTypeString string, generateEmpty bool) gen.Generator {
 	var imports []descriptor.GoPackage
 	for _, pkgpath := range []string{
 		"io",
@@ -82,6 +83,7 @@ func New(reg *descriptor.Registry, useRequestContext bool, registerFuncSuffix, p
 		useRequestContext:  useRequestContext,
 		registerFuncSuffix: registerFuncSuffix,
 		pathType:           pathType,
+		generateEmpty:      generateEmpty,
 	}
 }
 
@@ -142,6 +144,7 @@ func (g *generator) generate(file *descriptor.File) (string, error) {
 		Imports:            imports,
 		UseRequestContext:  g.useRequestContext,
 		RegisterFuncSuffix: g.registerFuncSuffix,
+		generateEmpty:      g.generateEmpty,
 	}
 	return applyTemplate(params, g.reg)
 }

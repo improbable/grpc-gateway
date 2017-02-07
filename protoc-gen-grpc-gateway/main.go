@@ -31,6 +31,7 @@ var (
 	pathType                   = flag.String("paths", "", "specifies how the paths of generated files are structured")
 	allowRepeatedFieldsInBody  = flag.Bool("allow_repeated_fields_in_body", false, "allows to use repeated field in `body` and `response_body` field of `google.api.http` annotation option")
 	repeatedPathParamSeparator = flag.String("repeated_path_param_separator", "csv", "configures how repeated fields should be split. Allowed values are `csv`, `pipes`, `ssv` and `tsv`.")
+	generateEmpty              = flag.Bool("generate_empty", false, "generate empty .pb.gw.go file for files with no target service defined")
 )
 
 func main() {
@@ -65,7 +66,7 @@ func main() {
 		}
 	}
 
-	g := gengateway.New(reg, *useRequestContext, *registerFuncSuffix, *pathType)
+	g := gengateway.New(reg, *useRequestContext, *registerFuncSuffix, *pathType, *generate_empty)
 
 	if *grpcAPIConfiguration != "" {
 		if err := reg.LoadGrpcAPIServiceFromYAML(*grpcAPIConfiguration); err != nil {
