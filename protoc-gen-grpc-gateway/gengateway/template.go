@@ -87,8 +87,12 @@ func applyTemplate(p param) (string, error) {
 		}
 	}
 
-	if !methodSeen && !p.generateEmpty {
-		return "", errNoTargetService
+	if !methodSeen {
+		if p.generateEmpty {
+			return w.String(), nil			
+		}
+		
+		return "", errNoTargetService	
 	}
 
 	if err := importsTemplate.Execute(w, p); err != nil {
