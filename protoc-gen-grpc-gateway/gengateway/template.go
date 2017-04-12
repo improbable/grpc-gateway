@@ -147,6 +147,8 @@ func applyTemplate(p param, reg *descriptor.Registry) (string, error) {
 	if err := importsTemplate.Execute(w, p); err != nil {
 		return "", err
 	}
+	
+	handlerBuf.WriteTo(w)	
 
 	tp := trailerParams{
 		Services:           targetServices,
