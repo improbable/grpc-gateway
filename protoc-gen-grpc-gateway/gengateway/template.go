@@ -108,11 +108,11 @@ func applyTemplate(p param) (string, error) {
 		return "", errNoTargetService	
 	}
 
-	handlerBuf.WriteTo(w)	
-
 	if err := importsTemplate.Execute(w, p); err != nil {
 		return "", err
 	}
+	
+	handlerBuf.WriteTo(w)	
 
 	tp := trailerParams{
 		Services:          targetServices,
