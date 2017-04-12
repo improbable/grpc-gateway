@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/golang/protobuf/proto"
-
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -59,13 +58,13 @@ var (
 	// HTTPError replies to the request with the error.
 	// You can set a custom function to this variable to customize error format.
 	HTTPError = DefaultHTTPError
-	// This handles the following error used by the gateway: StatusMethodNotAllowed StatusNotFound and StatusBadRequest
+	// OtherErrorHandler handles the following error used by the gateway: StatusMethodNotAllowed StatusNotFound and StatusBadRequest
 	OtherErrorHandler = DefaultOtherErrorHandler
 )
 
 type errorBody struct {
-	Error string `json:"error"`
-	Code  int    `json:"code"`
+	Error string `protobuf:"bytes,1,name=error" json:"error"`
+	Code  int32  `protobuf:"varint,2,name=code" json:"code"`
 }
 
 //Make this also conform to proto.Message for builtin JSONPb Marshaler
@@ -86,7 +85,7 @@ func DefaultHTTPError(ctx context.Context, marshaler Marshaler, w http.ResponseW
 	w.Header().Set("Content-Type", marshaler.ContentType())
 	body := &errorBody{
 		Error: grpc.ErrorDesc(err),
-		Code:  int(grpc.Code(err)),
+		Code:  int32(grpc.Code(err)),
 	}
 
 	buf, merr := marshaler.Marshal(body)
@@ -105,6 +104,7 @@ func DefaultHTTPError(ctx context.Context, marshaler Marshaler, w http.ResponseW
 	}
 
 	handleForwardResponseServerMetadata(w, md)
+	handleForwardResponseTrailerHeader(w, md)
 	st := HTTPStatusFromCode(grpc.Code(err))
 	w.WriteHeader(st)
 	if _, err := w.Write(buf); err != nil {
@@ -114,6 +114,8 @@ func DefaultHTTPError(ctx context.Context, marshaler Marshaler, w http.ResponseW
 	handleForwardResponseTrailer(w, md)
 }
 
-func DefaultOtherErrorHandler(w http.ResponseWriter, _ *http.Request, error string, code int) {
-	http.Error(w, error, code)
+// DefaultOtherErrorHandler is the default implementation of OtherErrorHandler.
+// It simply writes a string representation of the given error into "w".
+func DefaultOtherErrorHandler(w http.ResponseWriter, _ *http.Request, msg string, code int) {
+	http.Error(w, msg, code)
 }

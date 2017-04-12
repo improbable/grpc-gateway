@@ -7,9 +7,12 @@ package examplepb
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import _ "github.com/gengo/grpc-gateway/third_party/googleapis/google/api"
-import gengo_grpc_gateway_examples_sub "github.com/gengo/grpc-gateway/examples/sub"
-import sub2 "github.com/gengo/grpc-gateway/examples/sub2"
+import _ "google.golang.org/genproto/googleapis/api/annotations"
+import google_protobuf1 "github.com/golang/protobuf/ptypes/empty"
+import google_protobuf2 "github.com/golang/protobuf/ptypes/duration"
+import grpc_gateway_examples_sub "github.com/grpc-ecosystem/grpc-gateway/examples/sub"
+import sub2 "github.com/grpc-ecosystem/grpc-gateway/examples/sub2"
+import google_protobuf3 "github.com/golang/protobuf/ptypes/timestamp"
 
 import (
 	context "golang.org/x/net/context"
@@ -21,11 +24,14 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// NumericEnum is one or zero.
 type NumericEnum int32
 
 const (
+	// ZERO means 0
 	NumericEnum_ZERO NumericEnum = 0
-	NumericEnum_ONE  NumericEnum = 1
+	// ONE means 1
+	NumericEnum_ONE NumericEnum = 1
 )
 
 var NumericEnum_name = map[int32]string{
@@ -42,11 +48,14 @@ func (x NumericEnum) String() string {
 }
 func (NumericEnum) EnumDescriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
 
+// DeepEnum is one or zero.
 type ABitOfEverything_Nested_DeepEnum int32
 
 const (
+	// FALSE is false.
 	ABitOfEverything_Nested_FALSE ABitOfEverything_Nested_DeepEnum = 0
-	ABitOfEverything_Nested_TRUE  ABitOfEverything_Nested_DeepEnum = 1
+	// TRUE is true.
+	ABitOfEverything_Nested_TRUE ABitOfEverything_Nested_DeepEnum = 1
 )
 
 var ABitOfEverything_Nested_DeepEnum_name = map[int32]string{
@@ -82,7 +91,7 @@ type ABitOfEverything struct {
 	StringValue  string                     `protobuf:"bytes,11,opt,name=string_value,json=stringValue" json:"string_value,omitempty"`
 	// TODO(yugui) add bytes_value
 	Uint32Value         uint32      `protobuf:"varint,13,opt,name=uint32_value,json=uint32Value" json:"uint32_value,omitempty"`
-	EnumValue           NumericEnum `protobuf:"varint,14,opt,name=enum_value,json=enumValue,enum=gengo.grpc.gateway.examples.examplepb.NumericEnum" json:"enum_value,omitempty"`
+	EnumValue           NumericEnum `protobuf:"varint,14,opt,name=enum_value,json=enumValue,enum=grpc.gateway.examples.examplepb.NumericEnum" json:"enum_value,omitempty"`
 	Sfixed32Value       int32       `protobuf:"fixed32,15,opt,name=sfixed32_value,json=sfixed32Value" json:"sfixed32_value,omitempty"`
 	Sfixed64Value       int64       `protobuf:"fixed64,16,opt,name=sfixed64_value,json=sfixed64Value" json:"sfixed64_value,omitempty"`
 	Sint32Value         int32       `protobuf:"zigzag32,17,opt,name=sint32_value,json=sint32Value" json:"sint32_value,omitempty"`
@@ -92,10 +101,13 @@ type ABitOfEverything struct {
 	//	*ABitOfEverything_OneofEmpty
 	//	*ABitOfEverything_OneofString
 	OneofValue               isABitOfEverything_OneofValue       `protobuf_oneof:"oneof_value"`
-	MapValue                 map[string]NumericEnum              `protobuf:"bytes,22,rep,name=map_value,json=mapValue" json:"map_value,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value,enum=gengo.grpc.gateway.examples.examplepb.NumericEnum"`
+	MapValue                 map[string]NumericEnum              `protobuf:"bytes,22,rep,name=map_value,json=mapValue" json:"map_value,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value,enum=grpc.gateway.examples.examplepb.NumericEnum"`
 	MappedStringValue        map[string]string                   `protobuf:"bytes,23,rep,name=mapped_string_value,json=mappedStringValue" json:"mapped_string_value,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	MappedNestedValue        map[string]*ABitOfEverything_Nested `protobuf:"bytes,24,rep,name=mapped_nested_value,json=mappedNestedValue" json:"mapped_nested_value,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	NonConventionalNameValue string                              `protobuf:"bytes,26,opt,name=nonConventionalNameValue" json:"nonConventionalNameValue,omitempty"`
+	TimestampValue           *google_protobuf3.Timestamp         `protobuf:"bytes,27,opt,name=timestamp_value,json=timestampValue" json:"timestamp_value,omitempty"`
+	// repeated enum value. it is comma-separated in query
+	RepeatedEnumValue []NumericEnum `protobuf:"varint,28,rep,packed,name=repeated_enum_value,json=repeatedEnumValue,enum=grpc.gateway.examples.examplepb.NumericEnum" json:"repeated_enum_value,omitempty"`
 }
 
 func (m *ABitOfEverything) Reset()                    { *m = ABitOfEverything{} }
@@ -108,7 +120,7 @@ type isABitOfEverything_OneofValue interface {
 }
 
 type ABitOfEverything_OneofEmpty struct {
-	OneofEmpty *EmptyMessage `protobuf:"bytes,20,opt,name=oneof_empty,json=oneofEmpty,oneof"`
+	OneofEmpty *google_protobuf1.Empty `protobuf:"bytes,20,opt,name=oneof_empty,json=oneofEmpty,oneof"`
 }
 type ABitOfEverything_OneofString struct {
 	OneofString string `protobuf:"bytes,21,opt,name=oneof_string,json=oneofString,oneof"`
@@ -131,6 +143,13 @@ func (m *ABitOfEverything) GetSingleNested() *ABitOfEverything_Nested {
 	return nil
 }
 
+func (m *ABitOfEverything) GetUuid() string {
+	if m != nil {
+		return m.Uuid
+	}
+	return ""
+}
+
 func (m *ABitOfEverything) GetNested() []*ABitOfEverything_Nested {
 	if m != nil {
 		return m.Nested
@@ -138,7 +157,119 @@ func (m *ABitOfEverything) GetNested() []*ABitOfEverything_Nested {
 	return nil
 }
 
-func (m *ABitOfEverything) GetOneofEmpty() *EmptyMessage {
+func (m *ABitOfEverything) GetFloatValue() float32 {
+	if m != nil {
+		return m.FloatValue
+	}
+	return 0
+}
+
+func (m *ABitOfEverything) GetDoubleValue() float64 {
+	if m != nil {
+		return m.DoubleValue
+	}
+	return 0
+}
+
+func (m *ABitOfEverything) GetInt64Value() int64 {
+	if m != nil {
+		return m.Int64Value
+	}
+	return 0
+}
+
+func (m *ABitOfEverything) GetUint64Value() uint64 {
+	if m != nil {
+		return m.Uint64Value
+	}
+	return 0
+}
+
+func (m *ABitOfEverything) GetInt32Value() int32 {
+	if m != nil {
+		return m.Int32Value
+	}
+	return 0
+}
+
+func (m *ABitOfEverything) GetFixed64Value() uint64 {
+	if m != nil {
+		return m.Fixed64Value
+	}
+	return 0
+}
+
+func (m *ABitOfEverything) GetFixed32Value() uint32 {
+	if m != nil {
+		return m.Fixed32Value
+	}
+	return 0
+}
+
+func (m *ABitOfEverything) GetBoolValue() bool {
+	if m != nil {
+		return m.BoolValue
+	}
+	return false
+}
+
+func (m *ABitOfEverything) GetStringValue() string {
+	if m != nil {
+		return m.StringValue
+	}
+	return ""
+}
+
+func (m *ABitOfEverything) GetUint32Value() uint32 {
+	if m != nil {
+		return m.Uint32Value
+	}
+	return 0
+}
+
+func (m *ABitOfEverything) GetEnumValue() NumericEnum {
+	if m != nil {
+		return m.EnumValue
+	}
+	return NumericEnum_ZERO
+}
+
+func (m *ABitOfEverything) GetSfixed32Value() int32 {
+	if m != nil {
+		return m.Sfixed32Value
+	}
+	return 0
+}
+
+func (m *ABitOfEverything) GetSfixed64Value() int64 {
+	if m != nil {
+		return m.Sfixed64Value
+	}
+	return 0
+}
+
+func (m *ABitOfEverything) GetSint32Value() int32 {
+	if m != nil {
+		return m.Sint32Value
+	}
+	return 0
+}
+
+func (m *ABitOfEverything) GetSint64Value() int64 {
+	if m != nil {
+		return m.Sint64Value
+	}
+	return 0
+}
+
+func (m *ABitOfEverything) GetRepeatedStringValue() []string {
+	if m != nil {
+		return m.RepeatedStringValue
+	}
+	return nil
+}
+
+func (m *ABitOfEverything) GetOneofEmpty() *google_protobuf1.Empty {
 	if x, ok := m.GetOneofValue().(*ABitOfEverything_OneofEmpty); ok {
 		return x.OneofEmpty
 	}
@@ -169,6 +300,27 @@ func (m *ABitOfEverything) GetMappedStringValue() map[string]string {
 func (m *ABitOfEverything) GetMappedNestedValue() map[string]*ABitOfEverything_Nested {
 	if m != nil {
 		return m.MappedNestedValue
+	}
+	return nil
+}
+
+func (m *ABitOfEverything) GetNonConventionalNameValue() string {
+	if m != nil {
+		return m.NonConventionalNameValue
+	}
+	return ""
+}
+
+func (m *ABitOfEverything) GetTimestampValue() *google_protobuf3.Timestamp {
+	if m != nil {
+		return m.TimestampValue
+	}
+	return nil
+}
+
+func (m *ABitOfEverything) GetRepeatedEnumValue() []NumericEnum {
+	if m != nil {
+		return m.RepeatedEnumValue
 	}
 	return nil
 }
@@ -207,7 +359,7 @@ func _ABitOfEverything_OneofUnmarshaler(msg proto.Message, tag, wire int, b *pro
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
-		msg := new(EmptyMessage)
+		msg := new(google_protobuf1.Empty)
 		err := b.DecodeMessage(msg)
 		m.OneofValue = &ABitOfEverything_OneofEmpty{msg}
 		return true, err
@@ -243,10 +395,12 @@ func _ABitOfEverything_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
+// Nested is nested type.
 type ABitOfEverything_Nested struct {
+	// name is nested field.
 	Name   string                           `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 	Amount uint32                           `protobuf:"varint,2,opt,name=amount" json:"amount,omitempty"`
-	Ok     ABitOfEverything_Nested_DeepEnum `protobuf:"varint,3,opt,name=ok,enum=gengo.grpc.gateway.examples.examplepb.ABitOfEverything_Nested_DeepEnum" json:"ok,omitempty"`
+	Ok     ABitOfEverything_Nested_DeepEnum `protobuf:"varint,3,opt,name=ok,enum=grpc.gateway.examples.examplepb.ABitOfEverything_Nested_DeepEnum" json:"ok,omitempty"`
 }
 
 func (m *ABitOfEverything_Nested) Reset()                    { *m = ABitOfEverything_Nested{} }
@@ -254,20 +408,32 @@ func (m *ABitOfEverything_Nested) String() string            { return proto.Comp
 func (*ABitOfEverything_Nested) ProtoMessage()               {}
 func (*ABitOfEverything_Nested) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0, 0} }
 
-type EmptyMessage struct {
+func (m *ABitOfEverything_Nested) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
 }
 
-func (m *EmptyMessage) Reset()                    { *m = EmptyMessage{} }
-func (m *EmptyMessage) String() string            { return proto.CompactTextString(m) }
-func (*EmptyMessage) ProtoMessage()               {}
-func (*EmptyMessage) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{1} }
+func (m *ABitOfEverything_Nested) GetAmount() uint32 {
+	if m != nil {
+		return m.Amount
+	}
+	return 0
+}
+
+func (m *ABitOfEverything_Nested) GetOk() ABitOfEverything_Nested_DeepEnum {
+	if m != nil {
+		return m.Ok
+	}
+	return ABitOfEverything_Nested_FALSE
+}
 
 func init() {
-	proto.RegisterType((*ABitOfEverything)(nil), "gengo.grpc.gateway.examples.examplepb.ABitOfEverything")
-	proto.RegisterType((*ABitOfEverything_Nested)(nil), "gengo.grpc.gateway.examples.examplepb.ABitOfEverything.Nested")
-	proto.RegisterType((*EmptyMessage)(nil), "gengo.grpc.gateway.examples.examplepb.EmptyMessage")
-	proto.RegisterEnum("gengo.grpc.gateway.examples.examplepb.NumericEnum", NumericEnum_name, NumericEnum_value)
-	proto.RegisterEnum("gengo.grpc.gateway.examples.examplepb.ABitOfEverything_Nested_DeepEnum", ABitOfEverything_Nested_DeepEnum_name, ABitOfEverything_Nested_DeepEnum_value)
+	proto.RegisterType((*ABitOfEverything)(nil), "grpc.gateway.examples.examplepb.ABitOfEverything")
+	proto.RegisterType((*ABitOfEverything_Nested)(nil), "grpc.gateway.examples.examplepb.ABitOfEverything.Nested")
+	proto.RegisterEnum("grpc.gateway.examples.examplepb.NumericEnum", NumericEnum_name, NumericEnum_value)
+	proto.RegisterEnum("grpc.gateway.examples.examplepb.ABitOfEverything_Nested_DeepEnum", ABitOfEverything_Nested_DeepEnum_name, ABitOfEverything_Nested_DeepEnum_value)
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -276,21 +442,21 @@ var _ grpc.ClientConn
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion2
+const _ = grpc.SupportPackageIsVersion4
 
 // Client API for ABitOfEverythingService service
 
 type ABitOfEverythingServiceClient interface {
 	Create(ctx context.Context, in *ABitOfEverything, opts ...grpc.CallOption) (*ABitOfEverything, error)
 	CreateBody(ctx context.Context, in *ABitOfEverything, opts ...grpc.CallOption) (*ABitOfEverything, error)
-	BulkCreate(ctx context.Context, opts ...grpc.CallOption) (ABitOfEverythingService_BulkCreateClient, error)
 	Lookup(ctx context.Context, in *sub2.IdMessage, opts ...grpc.CallOption) (*ABitOfEverything, error)
-	List(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (ABitOfEverythingService_ListClient, error)
-	Update(ctx context.Context, in *ABitOfEverything, opts ...grpc.CallOption) (*EmptyMessage, error)
-	Delete(ctx context.Context, in *sub2.IdMessage, opts ...grpc.CallOption) (*EmptyMessage, error)
-	Echo(ctx context.Context, in *gengo_grpc_gateway_examples_sub.StringMessage, opts ...grpc.CallOption) (*gengo_grpc_gateway_examples_sub.StringMessage, error)
-	BulkEcho(ctx context.Context, opts ...grpc.CallOption) (ABitOfEverythingService_BulkEchoClient, error)
+	Update(ctx context.Context, in *ABitOfEverything, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+	Delete(ctx context.Context, in *sub2.IdMessage, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+	GetQuery(ctx context.Context, in *ABitOfEverything, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+	Echo(ctx context.Context, in *grpc_gateway_examples_sub.StringMessage, opts ...grpc.CallOption) (*grpc_gateway_examples_sub.StringMessage, error)
 	DeepPathEcho(ctx context.Context, in *ABitOfEverything, opts ...grpc.CallOption) (*ABitOfEverything, error)
+	NoBindings(ctx context.Context, in *google_protobuf2.Duration, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+	Timeout(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 }
 
 type aBitOfEverythingServiceClient struct {
@@ -303,7 +469,7 @@ func NewABitOfEverythingServiceClient(cc *grpc.ClientConn) ABitOfEverythingServi
 
 func (c *aBitOfEverythingServiceClient) Create(ctx context.Context, in *ABitOfEverything, opts ...grpc.CallOption) (*ABitOfEverything, error) {
 	out := new(ABitOfEverything)
-	err := grpc.Invoke(ctx, "/gengo.grpc.gateway.examples.examplepb.ABitOfEverythingService/Create", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/grpc.gateway.examples.examplepb.ABitOfEverythingService/Create", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -312,149 +478,79 @@ func (c *aBitOfEverythingServiceClient) Create(ctx context.Context, in *ABitOfEv
 
 func (c *aBitOfEverythingServiceClient) CreateBody(ctx context.Context, in *ABitOfEverything, opts ...grpc.CallOption) (*ABitOfEverything, error) {
 	out := new(ABitOfEverything)
-	err := grpc.Invoke(ctx, "/gengo.grpc.gateway.examples.examplepb.ABitOfEverythingService/CreateBody", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/grpc.gateway.examples.examplepb.ABitOfEverythingService/CreateBody", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
-}
-
-func (c *aBitOfEverythingServiceClient) BulkCreate(ctx context.Context, opts ...grpc.CallOption) (ABitOfEverythingService_BulkCreateClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_ABitOfEverythingService_serviceDesc.Streams[0], c.cc, "/gengo.grpc.gateway.examples.examplepb.ABitOfEverythingService/BulkCreate", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &aBitOfEverythingServiceBulkCreateClient{stream}
-	return x, nil
-}
-
-type ABitOfEverythingService_BulkCreateClient interface {
-	Send(*ABitOfEverything) error
-	CloseAndRecv() (*EmptyMessage, error)
-	grpc.ClientStream
-}
-
-type aBitOfEverythingServiceBulkCreateClient struct {
-	grpc.ClientStream
-}
-
-func (x *aBitOfEverythingServiceBulkCreateClient) Send(m *ABitOfEverything) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *aBitOfEverythingServiceBulkCreateClient) CloseAndRecv() (*EmptyMessage, error) {
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	m := new(EmptyMessage)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
 }
 
 func (c *aBitOfEverythingServiceClient) Lookup(ctx context.Context, in *sub2.IdMessage, opts ...grpc.CallOption) (*ABitOfEverything, error) {
 	out := new(ABitOfEverything)
-	err := grpc.Invoke(ctx, "/gengo.grpc.gateway.examples.examplepb.ABitOfEverythingService/Lookup", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/grpc.gateway.examples.examplepb.ABitOfEverythingService/Lookup", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *aBitOfEverythingServiceClient) List(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (ABitOfEverythingService_ListClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_ABitOfEverythingService_serviceDesc.Streams[1], c.cc, "/gengo.grpc.gateway.examples.examplepb.ABitOfEverythingService/List", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &aBitOfEverythingServiceListClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type ABitOfEverythingService_ListClient interface {
-	Recv() (*ABitOfEverything, error)
-	grpc.ClientStream
-}
-
-type aBitOfEverythingServiceListClient struct {
-	grpc.ClientStream
-}
-
-func (x *aBitOfEverythingServiceListClient) Recv() (*ABitOfEverything, error) {
-	m := new(ABitOfEverything)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *aBitOfEverythingServiceClient) Update(ctx context.Context, in *ABitOfEverything, opts ...grpc.CallOption) (*EmptyMessage, error) {
-	out := new(EmptyMessage)
-	err := grpc.Invoke(ctx, "/gengo.grpc.gateway.examples.examplepb.ABitOfEverythingService/Update", in, out, c.cc, opts...)
+func (c *aBitOfEverythingServiceClient) Update(ctx context.Context, in *ABitOfEverything, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
+	err := grpc.Invoke(ctx, "/grpc.gateway.examples.examplepb.ABitOfEverythingService/Update", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *aBitOfEverythingServiceClient) Delete(ctx context.Context, in *sub2.IdMessage, opts ...grpc.CallOption) (*EmptyMessage, error) {
-	out := new(EmptyMessage)
-	err := grpc.Invoke(ctx, "/gengo.grpc.gateway.examples.examplepb.ABitOfEverythingService/Delete", in, out, c.cc, opts...)
+func (c *aBitOfEverythingServiceClient) Delete(ctx context.Context, in *sub2.IdMessage, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
+	err := grpc.Invoke(ctx, "/grpc.gateway.examples.examplepb.ABitOfEverythingService/Delete", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *aBitOfEverythingServiceClient) Echo(ctx context.Context, in *gengo_grpc_gateway_examples_sub.StringMessage, opts ...grpc.CallOption) (*gengo_grpc_gateway_examples_sub.StringMessage, error) {
-	out := new(gengo_grpc_gateway_examples_sub.StringMessage)
-	err := grpc.Invoke(ctx, "/gengo.grpc.gateway.examples.examplepb.ABitOfEverythingService/Echo", in, out, c.cc, opts...)
+func (c *aBitOfEverythingServiceClient) GetQuery(ctx context.Context, in *ABitOfEverything, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
+	err := grpc.Invoke(ctx, "/grpc.gateway.examples.examplepb.ABitOfEverythingService/GetQuery", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *aBitOfEverythingServiceClient) BulkEcho(ctx context.Context, opts ...grpc.CallOption) (ABitOfEverythingService_BulkEchoClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_ABitOfEverythingService_serviceDesc.Streams[2], c.cc, "/gengo.grpc.gateway.examples.examplepb.ABitOfEverythingService/BulkEcho", opts...)
+func (c *aBitOfEverythingServiceClient) Echo(ctx context.Context, in *grpc_gateway_examples_sub.StringMessage, opts ...grpc.CallOption) (*grpc_gateway_examples_sub.StringMessage, error) {
+	out := new(grpc_gateway_examples_sub.StringMessage)
+	err := grpc.Invoke(ctx, "/grpc.gateway.examples.examplepb.ABitOfEverythingService/Echo", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &aBitOfEverythingServiceBulkEchoClient{stream}
-	return x, nil
-}
-
-type ABitOfEverythingService_BulkEchoClient interface {
-	Send(*gengo_grpc_gateway_examples_sub.StringMessage) error
-	Recv() (*gengo_grpc_gateway_examples_sub.StringMessage, error)
-	grpc.ClientStream
-}
-
-type aBitOfEverythingServiceBulkEchoClient struct {
-	grpc.ClientStream
-}
-
-func (x *aBitOfEverythingServiceBulkEchoClient) Send(m *gengo_grpc_gateway_examples_sub.StringMessage) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *aBitOfEverythingServiceBulkEchoClient) Recv() (*gengo_grpc_gateway_examples_sub.StringMessage, error) {
-	m := new(gengo_grpc_gateway_examples_sub.StringMessage)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
+	return out, nil
 }
 
 func (c *aBitOfEverythingServiceClient) DeepPathEcho(ctx context.Context, in *ABitOfEverything, opts ...grpc.CallOption) (*ABitOfEverything, error) {
 	out := new(ABitOfEverything)
-	err := grpc.Invoke(ctx, "/gengo.grpc.gateway.examples.examplepb.ABitOfEverythingService/DeepPathEcho", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/grpc.gateway.examples.examplepb.ABitOfEverythingService/DeepPathEcho", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aBitOfEverythingServiceClient) NoBindings(ctx context.Context, in *google_protobuf2.Duration, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
+	err := grpc.Invoke(ctx, "/grpc.gateway.examples.examplepb.ABitOfEverythingService/NoBindings", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aBitOfEverythingServiceClient) Timeout(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
+	err := grpc.Invoke(ctx, "/grpc.gateway.examples.examplepb.ABitOfEverythingService/Timeout", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -466,14 +562,14 @@ func (c *aBitOfEverythingServiceClient) DeepPathEcho(ctx context.Context, in *AB
 type ABitOfEverythingServiceServer interface {
 	Create(context.Context, *ABitOfEverything) (*ABitOfEverything, error)
 	CreateBody(context.Context, *ABitOfEverything) (*ABitOfEverything, error)
-	BulkCreate(ABitOfEverythingService_BulkCreateServer) error
 	Lookup(context.Context, *sub2.IdMessage) (*ABitOfEverything, error)
-	List(*EmptyMessage, ABitOfEverythingService_ListServer) error
-	Update(context.Context, *ABitOfEverything) (*EmptyMessage, error)
-	Delete(context.Context, *sub2.IdMessage) (*EmptyMessage, error)
-	Echo(context.Context, *gengo_grpc_gateway_examples_sub.StringMessage) (*gengo_grpc_gateway_examples_sub.StringMessage, error)
-	BulkEcho(ABitOfEverythingService_BulkEchoServer) error
+	Update(context.Context, *ABitOfEverything) (*google_protobuf1.Empty, error)
+	Delete(context.Context, *sub2.IdMessage) (*google_protobuf1.Empty, error)
+	GetQuery(context.Context, *ABitOfEverything) (*google_protobuf1.Empty, error)
+	Echo(context.Context, *grpc_gateway_examples_sub.StringMessage) (*grpc_gateway_examples_sub.StringMessage, error)
 	DeepPathEcho(context.Context, *ABitOfEverything) (*ABitOfEverything, error)
+	NoBindings(context.Context, *google_protobuf2.Duration) (*google_protobuf1.Empty, error)
+	Timeout(context.Context, *google_protobuf1.Empty) (*google_protobuf1.Empty, error)
 }
 
 func RegisterABitOfEverythingServiceServer(s *grpc.Server, srv ABitOfEverythingServiceServer) {
@@ -490,7 +586,7 @@ func _ABitOfEverythingService_Create_Handler(srv interface{}, ctx context.Contex
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/gengo.grpc.gateway.examples.examplepb.ABitOfEverythingService/Create",
+		FullMethod: "/grpc.gateway.examples.examplepb.ABitOfEverythingService/Create",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ABitOfEverythingServiceServer).Create(ctx, req.(*ABitOfEverything))
@@ -508,38 +604,12 @@ func _ABitOfEverythingService_CreateBody_Handler(srv interface{}, ctx context.Co
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/gengo.grpc.gateway.examples.examplepb.ABitOfEverythingService/CreateBody",
+		FullMethod: "/grpc.gateway.examples.examplepb.ABitOfEverythingService/CreateBody",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ABitOfEverythingServiceServer).CreateBody(ctx, req.(*ABitOfEverything))
 	}
 	return interceptor(ctx, in, info, handler)
-}
-
-func _ABitOfEverythingService_BulkCreate_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(ABitOfEverythingServiceServer).BulkCreate(&aBitOfEverythingServiceBulkCreateServer{stream})
-}
-
-type ABitOfEverythingService_BulkCreateServer interface {
-	SendAndClose(*EmptyMessage) error
-	Recv() (*ABitOfEverything, error)
-	grpc.ServerStream
-}
-
-type aBitOfEverythingServiceBulkCreateServer struct {
-	grpc.ServerStream
-}
-
-func (x *aBitOfEverythingServiceBulkCreateServer) SendAndClose(m *EmptyMessage) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *aBitOfEverythingServiceBulkCreateServer) Recv() (*ABitOfEverything, error) {
-	m := new(ABitOfEverything)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
 }
 
 func _ABitOfEverythingService_Lookup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -552,33 +622,12 @@ func _ABitOfEverythingService_Lookup_Handler(srv interface{}, ctx context.Contex
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/gengo.grpc.gateway.examples.examplepb.ABitOfEverythingService/Lookup",
+		FullMethod: "/grpc.gateway.examples.examplepb.ABitOfEverythingService/Lookup",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ABitOfEverythingServiceServer).Lookup(ctx, req.(*sub2.IdMessage))
 	}
 	return interceptor(ctx, in, info, handler)
-}
-
-func _ABitOfEverythingService_List_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(EmptyMessage)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(ABitOfEverythingServiceServer).List(m, &aBitOfEverythingServiceListServer{stream})
-}
-
-type ABitOfEverythingService_ListServer interface {
-	Send(*ABitOfEverything) error
-	grpc.ServerStream
-}
-
-type aBitOfEverythingServiceListServer struct {
-	grpc.ServerStream
-}
-
-func (x *aBitOfEverythingServiceListServer) Send(m *ABitOfEverything) error {
-	return x.ServerStream.SendMsg(m)
 }
 
 func _ABitOfEverythingService_Update_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -591,7 +640,7 @@ func _ABitOfEverythingService_Update_Handler(srv interface{}, ctx context.Contex
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/gengo.grpc.gateway.examples.examplepb.ABitOfEverythingService/Update",
+		FullMethod: "/grpc.gateway.examples.examplepb.ABitOfEverythingService/Update",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ABitOfEverythingServiceServer).Update(ctx, req.(*ABitOfEverything))
@@ -609,7 +658,7 @@ func _ABitOfEverythingService_Delete_Handler(srv interface{}, ctx context.Contex
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/gengo.grpc.gateway.examples.examplepb.ABitOfEverythingService/Delete",
+		FullMethod: "/grpc.gateway.examples.examplepb.ABitOfEverythingService/Delete",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ABitOfEverythingServiceServer).Delete(ctx, req.(*sub2.IdMessage))
@@ -617,8 +666,26 @@ func _ABitOfEverythingService_Delete_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ABitOfEverythingService_GetQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ABitOfEverything)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ABitOfEverythingServiceServer).GetQuery(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/grpc.gateway.examples.examplepb.ABitOfEverythingService/GetQuery",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ABitOfEverythingServiceServer).GetQuery(ctx, req.(*ABitOfEverything))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ABitOfEverythingService_Echo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(gengo_grpc_gateway_examples_sub.StringMessage)
+	in := new(grpc_gateway_examples_sub.StringMessage)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -627,38 +694,12 @@ func _ABitOfEverythingService_Echo_Handler(srv interface{}, ctx context.Context,
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/gengo.grpc.gateway.examples.examplepb.ABitOfEverythingService/Echo",
+		FullMethod: "/grpc.gateway.examples.examplepb.ABitOfEverythingService/Echo",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ABitOfEverythingServiceServer).Echo(ctx, req.(*gengo_grpc_gateway_examples_sub.StringMessage))
+		return srv.(ABitOfEverythingServiceServer).Echo(ctx, req.(*grpc_gateway_examples_sub.StringMessage))
 	}
 	return interceptor(ctx, in, info, handler)
-}
-
-func _ABitOfEverythingService_BulkEcho_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(ABitOfEverythingServiceServer).BulkEcho(&aBitOfEverythingServiceBulkEchoServer{stream})
-}
-
-type ABitOfEverythingService_BulkEchoServer interface {
-	Send(*gengo_grpc_gateway_examples_sub.StringMessage) error
-	Recv() (*gengo_grpc_gateway_examples_sub.StringMessage, error)
-	grpc.ServerStream
-}
-
-type aBitOfEverythingServiceBulkEchoServer struct {
-	grpc.ServerStream
-}
-
-func (x *aBitOfEverythingServiceBulkEchoServer) Send(m *gengo_grpc_gateway_examples_sub.StringMessage) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *aBitOfEverythingServiceBulkEchoServer) Recv() (*gengo_grpc_gateway_examples_sub.StringMessage, error) {
-	m := new(gengo_grpc_gateway_examples_sub.StringMessage)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
 }
 
 func _ABitOfEverythingService_DeepPathEcho_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -671,7 +712,7 @@ func _ABitOfEverythingService_DeepPathEcho_Handler(srv interface{}, ctx context.
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/gengo.grpc.gateway.examples.examplepb.ABitOfEverythingService/DeepPathEcho",
+		FullMethod: "/grpc.gateway.examples.examplepb.ABitOfEverythingService/DeepPathEcho",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ABitOfEverythingServiceServer).DeepPathEcho(ctx, req.(*ABitOfEverything))
@@ -679,8 +720,44 @@ func _ABitOfEverythingService_DeepPathEcho_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ABitOfEverythingService_NoBindings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(google_protobuf2.Duration)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ABitOfEverythingServiceServer).NoBindings(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/grpc.gateway.examples.examplepb.ABitOfEverythingService/NoBindings",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ABitOfEverythingServiceServer).NoBindings(ctx, req.(*google_protobuf2.Duration))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ABitOfEverythingService_Timeout_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(google_protobuf1.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ABitOfEverythingServiceServer).Timeout(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/grpc.gateway.examples.examplepb.ABitOfEverythingService/Timeout",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ABitOfEverythingServiceServer).Timeout(ctx, req.(*google_protobuf1.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _ABitOfEverythingService_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "gengo.grpc.gateway.examples.examplepb.ABitOfEverythingService",
+	ServiceName: "grpc.gateway.examples.examplepb.ABitOfEverythingService",
 	HandlerType: (*ABitOfEverythingServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -704,6 +781,10 @@ var _ABitOfEverythingService_serviceDesc = grpc.ServiceDesc{
 			Handler:    _ABitOfEverythingService_Delete_Handler,
 		},
 		{
+			MethodName: "GetQuery",
+			Handler:    _ABitOfEverythingService_GetQuery_Handler,
+		},
+		{
 			MethodName: "Echo",
 			Handler:    _ABitOfEverythingService_Echo_Handler,
 		},
@@ -711,102 +792,167 @@ var _ABitOfEverythingService_serviceDesc = grpc.ServiceDesc{
 			MethodName: "DeepPathEcho",
 			Handler:    _ABitOfEverythingService_DeepPathEcho_Handler,
 		},
-	},
-	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "BulkCreate",
-			Handler:       _ABitOfEverythingService_BulkCreate_Handler,
-			ClientStreams: true,
+			MethodName: "NoBindings",
+			Handler:    _ABitOfEverythingService_NoBindings_Handler,
 		},
 		{
-			StreamName:    "List",
-			Handler:       _ABitOfEverythingService_List_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "BulkEcho",
-			Handler:       _ABitOfEverythingService_BulkEcho_Handler,
-			ServerStreams: true,
-			ClientStreams: true,
+			MethodName: "Timeout",
+			Handler:    _ABitOfEverythingService_Timeout_Handler,
 		},
 	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "examples/examplepb/a_bit_of_everything.proto",
 }
 
+// Client API for AnotherServiceWithNoBindings service
+
+type AnotherServiceWithNoBindingsClient interface {
+	NoBindings(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+}
+
+type anotherServiceWithNoBindingsClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewAnotherServiceWithNoBindingsClient(cc *grpc.ClientConn) AnotherServiceWithNoBindingsClient {
+	return &anotherServiceWithNoBindingsClient{cc}
+}
+
+func (c *anotherServiceWithNoBindingsClient) NoBindings(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
+	err := grpc.Invoke(ctx, "/grpc.gateway.examples.examplepb.AnotherServiceWithNoBindings/NoBindings", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for AnotherServiceWithNoBindings service
+
+type AnotherServiceWithNoBindingsServer interface {
+	NoBindings(context.Context, *google_protobuf1.Empty) (*google_protobuf1.Empty, error)
+}
+
+func RegisterAnotherServiceWithNoBindingsServer(s *grpc.Server, srv AnotherServiceWithNoBindingsServer) {
+	s.RegisterService(&_AnotherServiceWithNoBindings_serviceDesc, srv)
+}
+
+func _AnotherServiceWithNoBindings_NoBindings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(google_protobuf1.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AnotherServiceWithNoBindingsServer).NoBindings(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/grpc.gateway.examples.examplepb.AnotherServiceWithNoBindings/NoBindings",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AnotherServiceWithNoBindingsServer).NoBindings(ctx, req.(*google_protobuf1.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _AnotherServiceWithNoBindings_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "grpc.gateway.examples.examplepb.AnotherServiceWithNoBindings",
+	HandlerType: (*AnotherServiceWithNoBindingsServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "NoBindings",
+			Handler:    _AnotherServiceWithNoBindings_NoBindings_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "examples/examplepb/a_bit_of_everything.proto",
+}
+
+func init() { proto.RegisterFile("examples/examplepb/a_bit_of_everything.proto", fileDescriptor1) }
+
 var fileDescriptor1 = []byte{
-	// 1189 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xc4, 0x57, 0xdd, 0x6e, 0x1b, 0x45,
-	0x14, 0xee, 0xda, 0x89, 0x6b, 0x8f, 0x7f, 0xe2, 0x4c, 0xda, 0xd4, 0x35, 0xa0, 0xa4, 0x4b, 0x0b,
-	0x21, 0x54, 0xbb, 0xd4, 0xa9, 0xf8, 0x89, 0x04, 0xa8, 0x69, 0x0c, 0x45, 0x4a, 0x13, 0xd8, 0xb4,
-	0x41, 0x8a, 0x84, 0xac, 0xb5, 0x3d, 0x71, 0x56, 0xb1, 0x77, 0x56, 0xfb, 0x63, 0x6a, 0x45, 0xee,
-	0x45, 0xc5, 0x1b, 0xf0, 0x00, 0x5c, 0x20, 0x21, 0x11, 0xa9, 0xbc, 0x03, 0xd7, 0x5c, 0xf2, 0x0a,
-	0xbc, 0x00, 0x6f, 0xc0, 0x99, 0x99, 0xdd, 0xcd, 0xac, 0x93, 0x62, 0xe3, 0x54, 0xe1, 0xca, 0x3b,
-	0x67, 0xbe, 0xfd, 0xce, 0x77, 0xce, 0x99, 0x73, 0x66, 0x8d, 0xee, 0x92, 0x67, 0x66, 0xcf, 0xe9,
-	0x12, 0x4f, 0x0f, 0x1f, 0x9c, 0xa6, 0x6e, 0x36, 0x9a, 0x96, 0xdf, 0xa0, 0x07, 0x0d, 0xd2, 0x27,
-	0xee, 0xc0, 0x3f, 0xb4, 0xec, 0x8e, 0xe6, 0xb8, 0xd4, 0xa7, 0xf8, 0x4e, 0x87, 0xd8, 0x1d, 0xaa,
-	0x75, 0x5c, 0xa7, 0xa5, 0x75, 0x4c, 0x9f, 0x7c, 0x6f, 0x0e, 0xb4, 0x88, 0x40, 0x8b, 0x09, 0xaa,
-	0x6f, 0x76, 0x28, 0xed, 0x74, 0x89, 0x6e, 0x3a, 0x96, 0x6e, 0xda, 0x36, 0xf5, 0x4d, 0xdf, 0xa2,
-	0xb6, 0x27, 0x48, 0xaa, 0xd5, 0xd8, 0xa5, 0x17, 0x34, 0xf5, 0x1e, 0xf1, 0x3c, 0xb3, 0x43, 0xc2,
-	0xbd, 0x37, 0xe4, 0xbd, 0x5a, 0x72, 0x53, 0xfd, 0xbb, 0x84, 0xca, 0x0f, 0x36, 0x2c, 0x7f, 0xe7,
-	0xa0, 0x1e, 0x0b, 0xc3, 0x2d, 0x54, 0xf4, 0xe0, 0xb7, 0x4b, 0x1a, 0x36, 0xf1, 0x7c, 0xd2, 0xae,
-	0xdc, 0x5c, 0x56, 0x56, 0xf2, 0xb5, 0xcf, 0xb4, 0x89, 0xa4, 0x6a, 0xa3, 0x7c, 0xda, 0x36, 0x67,
-	0x31, 0x0a, 0x82, 0x54, 0xac, 0x30, 0x46, 0x33, 0x41, 0x60, 0xb5, 0x2b, 0x0a, 0x70, 0xe7, 0x0c,
-	0xfe, 0x8c, 0xf7, 0x50, 0x26, 0xf4, 0x98, 0x5a, 0x4e, 0xbf, 0x06, 0x8f, 0x21, 0x1b, 0x5e, 0x42,
-	0xf9, 0x83, 0x2e, 0x35, 0xfd, 0x46, 0xdf, 0xec, 0x06, 0xa4, 0x92, 0x06, 0x97, 0x29, 0x03, 0x71,
-	0xd3, 0x1e, 0xb3, 0xe0, 0x5b, 0xa8, 0xd0, 0xa6, 0x41, 0x13, 0x22, 0x16, 0x88, 0x19, 0x40, 0x28,
-	0x46, 0x5e, 0xd8, 0x04, 0x04, 0x38, 0x2c, 0xdb, 0xff, 0xf0, 0x7e, 0x88, 0x98, 0x05, 0x44, 0xda,
-	0x40, 0xdc, 0x14, 0x73, 0x04, 0x32, 0x22, 0x03, 0x88, 0x19, 0x23, 0x1f, 0x48, 0x10, 0xc1, 0xb1,
-	0x56, 0x0b, 0x11, 0x57, 0x01, 0x31, 0xcb, 0x39, 0xd6, 0x6a, 0x02, 0xf0, 0x36, 0x2a, 0x1e, 0x58,
-	0xcf, 0x48, 0x3b, 0x26, 0xc9, 0x02, 0x24, 0x63, 0x14, 0x42, 0x63, 0x12, 0x14, 0xf3, 0xe4, 0x00,
-	0x74, 0x35, 0x04, 0x45, 0x4c, 0x6f, 0x21, 0xd4, 0xa4, 0xb4, 0x1b, 0x22, 0x10, 0x20, 0xb2, 0x46,
-	0x8e, 0x59, 0x62, 0xb1, 0x9e, 0xef, 0x42, 0xaa, 0x42, 0x40, 0x9e, 0x57, 0x21, 0x2f, 0x6c, 0x89,
-	0x78, 0x62, 0x2f, 0x45, 0x80, 0x14, 0x45, 0x3c, 0x91, 0x93, 0x6f, 0x10, 0x22, 0x76, 0xd0, 0x0b,
-	0x01, 0x25, 0x00, 0x94, 0x6a, 0xb5, 0x09, 0x6b, 0xb6, 0x1d, 0xf4, 0x88, 0x6b, 0xb5, 0xea, 0xf0,
-	0xbe, 0x91, 0x63, 0x2c, 0x82, 0xf2, 0x0e, 0x2a, 0x79, 0xc9, 0xe8, 0xe6, 0x80, 0x76, 0xce, 0x28,
-	0x7a, 0x89, 0xf0, 0x62, 0x58, 0x9c, 0xa9, 0x32, 0xc0, 0xca, 0x11, 0x4c, 0xaa, 0x89, 0x27, 0xc7,
-	0x30, 0x0f, 0xa0, 0x79, 0x08, 0x53, 0x8a, 0x21, 0x84, 0xc4, 0x3c, 0x18, 0x20, 0x58, 0x40, 0x22,
-	0x96, 0x1a, 0xba, 0xee, 0x12, 0x87, 0x40, 0x2c, 0xed, 0x46, 0x22, 0x6b, 0x0b, 0x70, 0x4a, 0x73,
-	0xc6, 0x42, 0xb4, 0xb9, 0x2b, 0x65, 0x6f, 0x0f, 0xe5, 0xa9, 0x4d, 0x58, 0xc3, 0xf7, 0x1c, 0x7f,
-	0x50, 0xb9, 0xc6, 0x3b, 0x68, 0x6d, 0xc2, 0xdc, 0xd4, 0xd9, 0x3b, 0x8f, 0x45, 0xa3, 0x3e, 0xba,
-	0x62, 0x20, 0xce, 0xc4, 0x8d, 0x50, 0xfc, 0x82, 0xe0, 0x15, 0x42, 0x2a, 0xd7, 0x59, 0xe1, 0x00,
-	0x23, 0xbc, 0x09, 0x05, 0xb8, 0x89, 0x72, 0x3d, 0xd3, 0x09, 0x45, 0x2e, 0xf2, 0x56, 0xaa, 0x4f,
-	0xdb, 0x4a, 0x8f, 0x4d, 0x87, 0x47, 0x54, 0xb7, 0x7d, 0x77, 0x60, 0x64, 0x7b, 0xe1, 0x12, 0x3f,
-	0x47, 0x0b, 0xf0, 0xec, 0x8c, 0xa6, 0xe4, 0x06, 0xf7, 0xb6, 0x7d, 0x01, 0x6f, 0x4e, 0x22, 0x91,
-	0xc2, 0xed, 0x7c, 0x6f, 0xd4, 0x2e, 0xf9, 0x17, 0x4d, 0x1e, 0xfa, 0xaf, 0xbc, 0x0e, 0xff, 0x62,
-	0x7c, 0x9c, 0xf5, 0x2f, 0xd9, 0xf1, 0x3a, 0xaa, 0xd8, 0xd4, 0x7e, 0x48, 0xed, 0x3e, 0xb1, 0xd9,
-	0x28, 0x36, 0xbb, 0xdb, 0x66, 0x4f, 0xcc, 0x8a, 0x4a, 0x95, 0x77, 0xd3, 0x2b, 0xf7, 0xab, 0xbf,
-	0x29, 0x28, 0x73, 0x3a, 0x06, 0x6d, 0xb0, 0x47, 0x63, 0x90, 0x3d, 0xe3, 0x45, 0x94, 0x31, 0x7b,
-	0x34, 0xb0, 0x7d, 0x18, 0x83, 0xac, 0xe7, 0xc2, 0x15, 0xfe, 0x16, 0xa5, 0xe8, 0x11, 0x9f, 0x5e,
-	0xa5, 0xda, 0x97, 0x17, 0x1b, 0x8d, 0xda, 0x26, 0x21, 0x0e, 0xef, 0x3d, 0xa0, 0x54, 0x97, 0x50,
-	0x36, 0x5a, 0xe3, 0x1c, 0x9a, 0xfd, 0xe2, 0xc1, 0xd6, 0x6e, 0xbd, 0x7c, 0x05, 0x67, 0xd1, 0xcc,
-	0x13, 0xe3, 0x69, 0xbd, 0xac, 0x54, 0x29, 0x2a, 0x26, 0xce, 0x01, 0x2e, 0xa3, 0xf4, 0x11, 0x19,
-	0x84, 0xaa, 0xd9, 0x23, 0x7e, 0x84, 0x66, 0x45, 0x05, 0x52, 0x53, 0x8f, 0x01, 0x41, 0xb0, 0x9e,
-	0xfa, 0x58, 0xa9, 0x6e, 0xa2, 0xc5, 0xf3, 0x8f, 0xc2, 0x39, 0x9e, 0xaf, 0xc9, 0x9e, 0x73, 0x32,
-	0xcb, 0x0f, 0x4a, 0x44, 0x33, 0x5a, 0xd1, 0x73, 0x68, 0x9e, 0xc8, 0x34, 0x17, 0xbf, 0x7b, 0x4e,
-	0x65, 0x6c, 0x14, 0xa3, 0x59, 0xc0, 0x4d, 0x6a, 0x09, 0x15, 0xe4, 0x06, 0x5f, 0x5d, 0x46, 0x79,
-	0x29, 0x0b, 0x2c, 0xeb, 0xfb, 0x75, 0x63, 0x07, 0xf2, 0x7f, 0x15, 0xa5, 0x77, 0xb6, 0x21, 0xfd,
-	0xb5, 0x93, 0x39, 0x74, 0x63, 0xd4, 0xcf, 0x2e, 0x71, 0xfb, 0x56, 0x8b, 0xe0, 0x93, 0x34, 0xca,
-	0x3c, 0x74, 0xd9, 0xfc, 0xc1, 0x1f, 0x4d, 0x29, 0xb9, 0x3a, 0xed, 0x8b, 0xea, 0xcb, 0xd4, 0x8b,
-	0x3f, 0xff, 0xfa, 0x31, 0xf5, 0x4b, 0x4a, 0xfd, 0x39, 0xa5, 0xf7, 0xef, 0x45, 0x1f, 0x3c, 0xe7,
-	0x7d, 0xee, 0xe8, 0xc7, 0xd2, 0x15, 0x3c, 0xd4, 0x8f, 0xe5, 0xfb, 0x16, 0x96, 0xd2, 0x08, 0x1e,
-	0xea, 0x1e, 0x71, 0x4c, 0xd7, 0xf4, 0xa9, 0xab, 0x1f, 0x07, 0x89, 0x8d, 0x63, 0x69, 0x98, 0xc3,
-	0x2a, 0x71, 0x03, 0x44, 0x6b, 0x69, 0xff, 0xf4, 0x06, 0x84, 0x85, 0x3c, 0xa6, 0x3e, 0x85, 0x85,
-	0xe3, 0x12, 0xc0, 0xeb, 0xab, 0x43, 0xe1, 0x44, 0x7a, 0xcd, 0x1b, 0xe5, 0xf1, 0x46, 0x1d, 0x79,
-	0x23, 0x2f, 0x24, 0x45, 0xbe, 0xaa, 0xef, 0x87, 0xf8, 0x44, 0x41, 0x48, 0x14, 0x6b, 0x83, 0xb6,
-	0x07, 0xff, 0x43, 0xc1, 0x56, 0x79, 0xbd, 0x6e, 0xab, 0x4b, 0x63, 0xaa, 0xb5, 0xae, 0xac, 0xe2,
-	0x97, 0x20, 0x76, 0x23, 0xe8, 0x1e, 0x5d, 0xf4, 0x74, 0x4d, 0x73, 0xeb, 0xa9, 0x3a, 0x17, 0xfa,
-	0x9e, 0x7a, 0x7b, 0xdc, 0xb1, 0x6a, 0x82, 0x42, 0x50, 0xbb, 0xa2, 0xe0, 0x17, 0x30, 0x55, 0xb7,
-	0x28, 0x3d, 0x0a, 0x1c, 0x3c, 0xa7, 0xb1, 0x6f, 0x5d, 0xed, 0xab, 0x76, 0x48, 0x37, 0x7d, 0xc2,
-	0x34, 0xae, 0x63, 0x05, 0xbf, 0x33, 0xf6, 0x78, 0xb3, 0x2f, 0xd8, 0x21, 0xfe, 0x49, 0x41, 0x33,
-	0x5b, 0x96, 0xe7, 0xe3, 0x69, 0xa2, 0x9e, 0x5e, 0xe6, 0xbb, 0x5c, 0xe6, 0x2d, 0x3c, 0xae, 0xae,
-	0x1f, 0x28, 0xf8, 0x57, 0x48, 0xd3, 0x53, 0xa7, 0x7d, 0xf9, 0x25, 0xbd, 0xc7, 0x35, 0xbe, 0x5f,
-	0x9d, 0x30, 0x95, 0xec, 0x08, 0x3e, 0x47, 0x99, 0x4d, 0xd2, 0x25, 0x20, 0xf5, 0x4c, 0x45, 0xa7,
-	0x92, 0x10, 0x56, 0x73, 0x75, 0xd2, 0x6a, 0xfe, 0x01, 0xd5, 0xac, 0xb7, 0x0e, 0x29, 0xd6, 0xfe,
-	0xd5, 0x1b, 0x48, 0xd3, 0xc4, 0x45, 0x15, 0xa9, 0xfb, 0x8f, 0x78, 0xb5, 0xc5, 0x85, 0x7d, 0x87,
-	0xef, 0x8e, 0x13, 0x46, 0x40, 0x8d, 0x7e, 0x2c, 0x26, 0xcd, 0xfe, 0x4d, 0xb5, 0xac, 0xf7, 0x6b,
-	0x31, 0x9e, 0xed, 0xad, 0x8b, 0x7b, 0x67, 0x1f, 0xe3, 0x33, 0x5b, 0xec, 0x6c, 0x66, 0x59, 0x43,
-	0x5f, 0x4a, 0x44, 0x13, 0x37, 0x30, 0x57, 0xcd, 0x1a, 0x18, 0xce, 0xe6, 0xef, 0x0a, 0x2a, 0xb0,
-	0x2f, 0x91, 0xaf, 0x4d, 0xff, 0x90, 0xab, 0xbc, 0xfc, 0x09, 0xf9, 0x39, 0xd7, 0xfd, 0x89, 0x7a,
-	0x7f, 0xec, 0x11, 0x49, 0xfc, 0x47, 0xd6, 0xd8, 0x97, 0x1b, 0x3b, 0xb3, 0x1b, 0xf9, 0xfd, 0x5c,
-	0x4c, 0xdf, 0xcc, 0xf0, 0xbf, 0xd9, 0x6b, 0xff, 0x04, 0x00, 0x00, 0xff, 0xff, 0xe1, 0xf0, 0x85,
-	0x31, 0x14, 0x10, 0x00, 0x00,
+	// 1297 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x57, 0x4f, 0x6f, 0x1b, 0x45,
+	0x14, 0xcf, 0xd8, 0x89, 0x13, 0x3f, 0xc7, 0x89, 0x33, 0x69, 0x53, 0xd7, 0x2d, 0x64, 0x71, 0x01,
+	0xad, 0x42, 0xb5, 0xab, 0xba, 0x15, 0x6a, 0x23, 0x41, 0x95, 0x34, 0x86, 0x22, 0xda, 0xb4, 0xdd,
+	0xfe, 0x41, 0x8a, 0x5a, 0xac, 0xb5, 0x3d, 0xb6, 0x57, 0xf1, 0xee, 0x2c, 0xbb, 0xb3, 0x26, 0x96,
+	0x31, 0x07, 0x0e, 0x5c, 0x38, 0x72, 0xef, 0x05, 0x09, 0x71, 0xe1, 0xc8, 0x19, 0xbe, 0x03, 0x5f,
+	0x81, 0x03, 0x1f, 0x03, 0xed, 0xcc, 0xec, 0x76, 0xd7, 0x89, 0xe5, 0x26, 0x45, 0xbd, 0xed, 0xcc,
+	0x7b, 0xef, 0xf7, 0x7b, 0x7f, 0xe6, 0xbd, 0x99, 0x85, 0xab, 0xe4, 0xc8, 0xb4, 0xdd, 0x3e, 0xf1,
+	0x75, 0xf9, 0xe1, 0x36, 0x75, 0xb3, 0xd1, 0xb4, 0x58, 0x83, 0x76, 0x1a, 0x64, 0x40, 0xbc, 0x21,
+	0xeb, 0x59, 0x4e, 0x57, 0x73, 0x3d, 0xca, 0x28, 0xde, 0xec, 0x7a, 0x6e, 0x4b, 0xeb, 0x9a, 0x8c,
+	0x7c, 0x6b, 0x0e, 0xb5, 0xc8, 0x54, 0x8b, 0x4d, 0x2b, 0x97, 0xbb, 0x94, 0x76, 0xfb, 0x44, 0x37,
+	0x5d, 0x4b, 0x37, 0x1d, 0x87, 0x32, 0x93, 0x59, 0xd4, 0xf1, 0x85, 0x79, 0xe5, 0x92, 0x94, 0xf2,
+	0x55, 0x33, 0xe8, 0xe8, 0xc4, 0x76, 0xd9, 0x50, 0x0a, 0xdf, 0x9d, 0x14, 0xb6, 0x03, 0x8f, 0x5b,
+	0x4b, 0x79, 0x25, 0xf6, 0xd4, 0x0f, 0x9a, 0xba, 0x4d, 0x7c, 0xdf, 0xec, 0x92, 0x08, 0x38, 0x29,
+	0xab, 0x4d, 0x08, 0x37, 0x27, 0x81, 0x99, 0x65, 0x13, 0x9f, 0x99, 0xb6, 0x2b, 0x14, 0xaa, 0x7f,
+	0xad, 0x42, 0x69, 0x67, 0xd7, 0x62, 0x0f, 0x3a, 0xf5, 0x38, 0x60, 0xfc, 0x02, 0x8a, 0xbe, 0xe5,
+	0x74, 0xfb, 0xa4, 0xe1, 0x10, 0x9f, 0x91, 0x76, 0xf9, 0xa2, 0x82, 0xd4, 0x42, 0xed, 0xa6, 0x36,
+	0x23, 0x05, 0xda, 0x24, 0x92, 0xb6, 0xcf, 0xed, 0x8d, 0x65, 0x01, 0x27, 0x56, 0x18, 0xc3, 0x7c,
+	0x10, 0x58, 0xed, 0x32, 0x52, 0x90, 0x9a, 0x37, 0xf8, 0x37, 0x7e, 0x08, 0x39, 0xc9, 0x95, 0x51,
+	0xb2, 0x6f, 0xc4, 0x25, 0x71, 0xf0, 0x26, 0x14, 0x3a, 0x7d, 0x6a, 0xb2, 0xc6, 0xc0, 0xec, 0x07,
+	0xa4, 0x9c, 0x55, 0x90, 0x9a, 0x31, 0x80, 0x6f, 0x3d, 0x0b, 0x77, 0xf0, 0x7b, 0xb0, 0xdc, 0xa6,
+	0x41, 0xb3, 0x4f, 0xa4, 0xc6, 0xbc, 0x82, 0x54, 0x64, 0x14, 0xc4, 0x9e, 0x50, 0xd9, 0x84, 0x82,
+	0xe5, 0xb0, 0x8f, 0x6f, 0x48, 0x8d, 0x05, 0x05, 0xa9, 0x59, 0x03, 0xf8, 0x56, 0x8c, 0x11, 0x24,
+	0x35, 0x72, 0x0a, 0x52, 0xe7, 0x8d, 0x42, 0x90, 0x50, 0x11, 0x18, 0xd7, 0x6b, 0x52, 0x63, 0x51,
+	0x41, 0xea, 0x02, 0xc7, 0xb8, 0x5e, 0x13, 0x0a, 0x57, 0xa0, 0xd8, 0xb1, 0x8e, 0x48, 0x3b, 0x06,
+	0x59, 0x52, 0x90, 0x9a, 0x33, 0x96, 0xe5, 0x66, 0x5a, 0x29, 0xc6, 0xc9, 0x2b, 0x48, 0x5d, 0x94,
+	0x4a, 0x11, 0xd2, 0x3b, 0x00, 0x4d, 0x4a, 0xfb, 0x52, 0x03, 0x14, 0xa4, 0x2e, 0x19, 0xf9, 0x70,
+	0x27, 0x76, 0xd6, 0x67, 0x9e, 0xe5, 0x74, 0xa5, 0x42, 0x81, 0xe7, 0xbf, 0x20, 0xf6, 0x52, 0xf1,
+	0xc4, 0x2c, 0x45, 0x05, 0xa9, 0x45, 0x11, 0x4f, 0x44, 0xf2, 0x25, 0x00, 0x71, 0x02, 0x5b, 0x2a,
+	0xac, 0x28, 0x48, 0x5d, 0xa9, 0x5d, 0x9d, 0x59, 0xad, 0xfd, 0xc0, 0x26, 0x9e, 0xd5, 0xaa, 0x3b,
+	0x81, 0x6d, 0xe4, 0x43, 0x7b, 0x01, 0xf6, 0x01, 0xac, 0xf8, 0xe9, 0xb8, 0x56, 0x15, 0xa4, 0xae,
+	0x1a, 0x45, 0x3f, 0x15, 0x58, 0xac, 0x16, 0xe7, 0xa8, 0xa4, 0x20, 0xb5, 0x14, 0xa9, 0x25, 0xaa,
+	0xe1, 0x27, 0xbd, 0x5f, 0x53, 0x90, 0xba, 0x66, 0x14, 0xfc, 0x84, 0xf7, 0x52, 0x25, 0xc6, 0xc1,
+	0x0a, 0x52, 0xb1, 0x50, 0x89, 0x50, 0x6a, 0x70, 0xde, 0x23, 0x2e, 0x31, 0x19, 0x69, 0x37, 0x52,
+	0xf9, 0x5a, 0x57, 0xb2, 0x6a, 0xde, 0x58, 0x8f, 0x84, 0x8f, 0x13, 0x79, 0xbb, 0x05, 0x05, 0xea,
+	0x90, 0x70, 0x6c, 0x84, 0x5d, 0x5d, 0x3e, 0xc7, 0xfb, 0x65, 0x43, 0x13, 0xdd, 0xa7, 0x45, 0xdd,
+	0xa7, 0xd5, 0x43, 0xe9, 0xdd, 0x39, 0x03, 0xb8, 0x32, 0x5f, 0xe1, 0x2b, 0xb0, 0x2c, 0x4c, 0x05,
+	0x57, 0xf9, 0x7c, 0x58, 0x95, 0xbb, 0x73, 0x86, 0x00, 0x14, 0x24, 0xf8, 0x39, 0xe4, 0x6d, 0xd3,
+	0x95, 0x7e, 0x6c, 0xf0, 0x0e, 0xb9, 0x7d, 0xfa, 0x0e, 0xb9, 0x6f, 0xba, 0xdc, 0xdd, 0xba, 0xc3,
+	0xbc, 0xa1, 0xb1, 0x64, 0xcb, 0x25, 0x3e, 0x82, 0x75, 0xdb, 0x74, 0xdd, 0xc9, 0x78, 0x2f, 0x70,
+	0x9e, 0xbb, 0x67, 0xe2, 0x71, 0x53, 0xf9, 0x11, 0x84, 0x6b, 0xf6, 0xe4, 0x7e, 0x82, 0x59, 0x74,
+	0xad, 0x64, 0x2e, 0xbf, 0x19, 0xb3, 0x98, 0x04, 0xc7, 0x99, 0x13, 0xfb, 0x78, 0x1b, 0xca, 0x0e,
+	0x75, 0xee, 0x50, 0x67, 0x40, 0x9c, 0x70, 0xd2, 0x9a, 0xfd, 0x7d, 0xd3, 0x16, 0x6d, 0x5f, 0xae,
+	0xf0, 0xc6, 0x98, 0x2a, 0xc7, 0x77, 0x60, 0x35, 0x9e, 0xa3, 0xd2, 0xe3, 0x4b, 0xbc, 0xe2, 0x95,
+	0x63, 0x15, 0x7f, 0x12, 0xe9, 0x19, 0x2b, 0xb1, 0x89, 0x00, 0x79, 0x0e, 0xf1, 0x49, 0x6a, 0x24,
+	0x1a, 0xea, 0xb2, 0x92, 0x3d, 0x75, 0x43, 0xad, 0x45, 0x40, 0xf5, 0xa8, 0xb1, 0x2a, 0xbf, 0x21,
+	0xc8, 0xbd, 0x1a, 0xb7, 0x8e, 0x69, 0x93, 0x68, 0xdc, 0x86, 0xdf, 0x78, 0x03, 0x72, 0xa6, 0x4d,
+	0x03, 0x87, 0x95, 0x33, 0xbc, 0xc3, 0xe5, 0x0a, 0x3f, 0x82, 0x0c, 0x3d, 0xe4, 0xb3, 0x72, 0xa5,
+	0xb6, 0x73, 0xd6, 0x11, 0xac, 0xed, 0x11, 0xe2, 0x72, 0xc7, 0x32, 0xf4, 0xb0, 0xba, 0x09, 0x4b,
+	0xd1, 0x1a, 0xe7, 0x61, 0xe1, 0xb3, 0x9d, 0x7b, 0x8f, 0xeb, 0xa5, 0x39, 0xbc, 0x04, 0xf3, 0x4f,
+	0x8c, 0xa7, 0xf5, 0x12, 0xaa, 0x58, 0x50, 0x4c, 0x1d, 0x4c, 0x5c, 0x82, 0xec, 0x21, 0x19, 0x4a,
+	0x7f, 0xc3, 0x4f, 0xbc, 0x0b, 0x0b, 0x22, 0x3b, 0x99, 0x33, 0x8c, 0x1b, 0x61, 0xba, 0x9d, 0xb9,
+	0x89, 0x2a, 0x7b, 0xb0, 0x71, 0xf2, 0xd9, 0x3c, 0x81, 0xf3, 0x5c, 0x92, 0x33, 0x9f, 0x44, 0xf9,
+	0x3e, 0x42, 0x99, 0x3c, 0x67, 0x27, 0xa0, 0xec, 0x27, 0x51, 0xde, 0xe4, 0x5a, 0x7b, 0xc5, 0xbf,
+	0x5b, 0x8c, 0x86, 0x0d, 0xdf, 0xda, 0x52, 0xa0, 0x90, 0x08, 0x37, 0x4c, 0xec, 0x41, 0xdd, 0x78,
+	0x50, 0x9a, 0xc3, 0x8b, 0x90, 0x7d, 0xb0, 0x5f, 0x2f, 0xa1, 0xda, 0xbf, 0xcb, 0x70, 0x61, 0x12,
+	0xf7, 0x31, 0xf1, 0x06, 0x56, 0x8b, 0xe0, 0x97, 0x59, 0xc8, 0xdd, 0xf1, 0xc2, 0xd3, 0x83, 0xaf,
+	0x9d, 0xda, 0xb9, 0xca, 0xe9, 0x4d, 0xaa, 0xbf, 0x67, 0x7e, 0xf8, 0xfb, 0x9f, 0x9f, 0x33, 0xbf,
+	0x66, 0xaa, 0xbf, 0x64, 0xf4, 0xc1, 0xb5, 0xe8, 0xed, 0x75, 0xd2, 0xcb, 0x4b, 0x1f, 0x25, 0x6e,
+	0xf0, 0xb1, 0x3e, 0x4a, 0x5e, 0xd7, 0x63, 0x7d, 0x94, 0x98, 0xe3, 0x63, 0xdd, 0x27, 0xae, 0xe9,
+	0x99, 0x8c, 0x7a, 0xfa, 0x28, 0x48, 0x09, 0x46, 0x89, 0x1b, 0x61, 0xac, 0x8f, 0x52, 0xd7, 0x48,
+	0xb4, 0x4e, 0xc8, 0x5f, 0x5d, 0xa0, 0x63, 0x7d, 0x94, 0x1c, 0x87, 0x9f, 0xf8, 0xcc, 0x73, 0x3d,
+	0xd2, 0xb1, 0x8e, 0xf4, 0xad, 0xb1, 0x20, 0x49, 0x98, 0xf9, 0x93, 0x38, 0xfe, 0x24, 0x91, 0x3f,
+	0x61, 0x90, 0x76, 0x72, 0xda, 0xac, 0x19, 0xe3, 0x97, 0x08, 0x40, 0x14, 0x68, 0x97, 0xb6, 0x87,
+	0x6f, 0xa9, 0x48, 0x5b, 0xbc, 0x46, 0xef, 0x57, 0x37, 0x67, 0x54, 0x68, 0x1b, 0x6d, 0xe1, 0xef,
+	0x20, 0x77, 0x8f, 0xd2, 0xc3, 0xc0, 0xc5, 0xab, 0x5a, 0xf8, 0x04, 0xd5, 0xbe, 0x68, 0xdf, 0x17,
+	0x8f, 0xd0, 0xb3, 0x30, 0x6b, 0x9c, 0x59, 0xc5, 0x1f, 0xce, 0x3c, 0x1b, 0xe1, 0xbb, 0x71, 0x8c,
+	0x7f, 0x44, 0x90, 0x7b, 0xea, 0xb6, 0xcf, 0x78, 0x7e, 0xa7, 0x5c, 0xd1, 0xd5, 0x6b, 0xdc, 0x8b,
+	0x8f, 0x2a, 0xaf, 0xe9, 0x45, 0x98, 0x06, 0x13, 0x72, 0x7b, 0xa4, 0x4f, 0x18, 0x39, 0x9e, 0x86,
+	0x69, 0x2c, 0x32, 0xd6, 0xad, 0xd7, 0x8d, 0xf5, 0x27, 0x04, 0x4b, 0x9f, 0x13, 0xf6, 0x28, 0x20,
+	0xde, 0xf0, 0xff, 0x8c, 0xf6, 0x06, 0xf7, 0x43, 0xc3, 0x57, 0x67, 0xf9, 0xf1, 0x4d, 0xc8, 0x1c,
+	0x79, 0xf3, 0x27, 0x82, 0xf9, 0x7a, 0xab, 0x47, 0xb1, 0x3a, 0xc5, 0x13, 0x3f, 0x68, 0x6a, 0x62,
+	0xd0, 0x46, 0x89, 0x78, 0x6d, 0xcd, 0x6a, 0x8b, 0xbb, 0xf4, 0x62, 0xb6, 0x4b, 0xa4, 0xd5, 0xa3,
+	0xfa, 0x48, 0xb4, 0xd1, 0xc1, 0xc5, 0x6a, 0x49, 0x1f, 0xd4, 0x62, 0xfd, 0x50, 0xb6, 0x2d, 0x06,
+	0xe7, 0x01, 0xc6, 0xc7, 0x44, 0xf8, 0x0f, 0x04, 0xcb, 0xe1, 0xdd, 0xf4, 0xd0, 0x64, 0x3d, 0x1e,
+	0xc9, 0xdb, 0x69, 0xae, 0xdb, 0x3c, 0xb6, 0x5b, 0xd5, 0x1b, 0x33, 0xcb, 0x9e, 0xfa, 0x0b, 0xd3,
+	0xc2, 0x9b, 0x9b, 0x1f, 0xb5, 0x1d, 0x80, 0x7d, 0xba, 0x6b, 0x39, 0x6d, 0xcb, 0xe9, 0xfa, 0xf8,
+	0xe2, 0xb1, 0xaa, 0xee, 0xc9, 0xbf, 0xc7, 0xa9, 0x05, 0x9f, 0xc3, 0xcf, 0x60, 0x31, 0x7c, 0x9a,
+	0xd0, 0x80, 0xe1, 0x29, 0x4a, 0x53, 0x8d, 0x2f, 0x71, 0xf7, 0xcf, 0xe3, 0xf5, 0x64, 0x3e, 0x99,
+	0x00, 0xab, 0x7d, 0x0d, 0x97, 0x77, 0x1c, 0xca, 0x7a, 0xc4, 0x93, 0x17, 0xcc, 0x57, 0x16, 0xeb,
+	0x25, 0x9c, 0xfd, 0x34, 0xe5, 0xfa, 0x69, 0xa9, 0xe7, 0x76, 0x0b, 0x07, 0xf9, 0x38, 0xb3, 0xcd,
+	0x1c, 0x17, 0x5f, 0xff, 0x2f, 0x00, 0x00, 0xff, 0xff, 0xab, 0xe5, 0x92, 0x0d, 0xc9, 0x0f, 0x00,
+	0x00,
 }

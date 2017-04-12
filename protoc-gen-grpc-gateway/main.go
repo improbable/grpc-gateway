@@ -1,3 +1,11 @@
+// Command protoc-gen-grpc-gateway is a plugin for Google protocol buffer
+// compiler to generate a reverse-proxy, which converts incoming RESTful
+// HTTP/1 requests gRPC invocation.
+// You rarely need to run this program directly. Instead, put this program
+// into your $PATH with a name "protoc-gen-grpc-gateway" and run
+//   protoc --grpc-gateway_out=output_directory path/to/input.proto
+//
+// See README.md for more details.
 package main
 
 import (
@@ -7,16 +15,17 @@ import (
 	"os"
 	"strings"
 
-	"github.com/gengo/grpc-gateway/protoc-gen-grpc-gateway/descriptor"
-	"github.com/gengo/grpc-gateway/protoc-gen-grpc-gateway/gengateway"
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
+	"github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway/descriptor"
+	"github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway/gengateway"
 )
 
 var (
-	importPrefix = flag.String("import_prefix", "", "prefix to be added to go package paths for imported proto files")
 	generateEmpty = flag.Bool("generate_empty", false, "generate empty .pb.gw.go file for files with no target service defined")
+	importPrefix      = flag.String("import_prefix", "", "prefix to be added to go package paths for imported proto files")
+	useRequestContext = flag.Bool("request_context", false, "determine whether to use http.Request's context or not")
 )
 
 func parseReq(r io.Reader) (*plugin.CodeGeneratorRequest, error) {
@@ -66,7 +75,7 @@ func main() {
 		}
 	}
 
-	g := gengateway.New(reg, *generateEmpty)
+	g := gengateway.New(reg, *useRequestContext, *generateEmpty)
 
 	reg.SetPrefix(*importPrefix)
 	if err := reg.Load(req); err != nil {

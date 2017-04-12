@@ -1,7 +1,10 @@
 package genswagger
 
 import (
-	"github.com/gengo/grpc-gateway/protoc-gen-grpc-gateway/descriptor"
+	"bytes"
+	"encoding/json"
+
+	"github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway/descriptor"
 )
 
 type param struct {
@@ -15,8 +18,33 @@ type binding struct {
 
 // http://swagger.io/specification/#infoObject
 type swaggerInfoObject struct {
-	Version string `json:"version"`
-	Title   string `json:"title"`
+	Title          string `json:"title"`
+	Description    string `json:"description,omitempty"`
+	TermsOfService string `json:"termsOfService,omitempty"`
+	Version        string `json:"version"`
+
+	Contact      *swaggerContactObject               `json:"contact,omitempty"`
+	License      *swaggerLicenseObject               `json:"license,omitempty"`
+	ExternalDocs *swaggerExternalDocumentationObject `json:"externalDocs,omitempty"`
+}
+
+// http://swagger.io/specification/#contactObject
+type swaggerContactObject struct {
+	Name  string `json:"name,omitempty"`
+	URL   string `json:"url,omitempty"`
+	Email string `json:"email,omitempty"`
+}
+
+// http://swagger.io/specification/#licenseObject
+type swaggerLicenseObject struct {
+	Name string `json:"name,omitempty"`
+	URL  string `json:"url,omitempty"`
+}
+
+// http://swagger.io/specification/#externalDocumentationObject
+type swaggerExternalDocumentationObject struct {
+	Description string `json:"description,omitempty"`
+	URL         string `json:"url,omitempty"`
 }
 
 // http://swagger.io/specification/#swaggerObject
@@ -41,15 +69,19 @@ type swaggerPathItemObject struct {
 	Delete *swaggerOperationObject `json:"delete,omitempty"`
 	Post   *swaggerOperationObject `json:"post,omitempty"`
 	Put    *swaggerOperationObject `json:"put,omitempty"`
+	Patch  *swaggerOperationObject `json:"patch,omitempty"`
 }
 
 // http://swagger.io/specification/#operationObject
 type swaggerOperationObject struct {
-	Summary     string                  `json:"summary"`
-	OperationId string                  `json:"operationId"`
+	Summary     string                  `json:"summary,omitempty"`
+	Description string                  `json:"description,omitempty"`
+	OperationID string                  `json:"operationId"`
 	Responses   swaggerResponsesObject  `json:"responses"`
 	Parameters  swaggerParametersObject `json:"parameters,omitempty"`
 	Tags        []string                `json:"tags,omitempty"`
+
+	ExternalDocs *swaggerExternalDocumentationObject `json:"externalDocs,omitempty"`
 }
 
 type swaggerParametersObject []swaggerParameterObject
@@ -63,6 +95,8 @@ type swaggerParameterObject struct {
 	Type        string              `json:"type,omitempty"`
 	Format      string              `json:"format,omitempty"`
 	Items       *swaggerItemsObject `json:"items,omitempty"`
+	Enum        []string            `json:"enum,omitempty"`
+	Default     string              `json:"default,omitempty"`
 
 	// Or you can explicitly refer to another type. If this is defined all
 	// other fields should be empty
@@ -75,6 +109,14 @@ type schemaCore struct {
 	Type   string `json:"type,omitempty"`
 	Format string `json:"format,omitempty"`
 	Ref    string `json:"$ref,omitempty"`
+
+	Items *swaggerItemsObject `json:"items,omitempty"`
+
+	// If the item is an enumeration include a list of all the *NAMES* of the
+	// enum values.  I'm not sure how well this will work but assuming all enums
+	// start from 0 index it will be great. I don't think that is a good assumption.
+	Enum    []string `json:"enum,omitempty"`
+	Default string   `json:"default,omitempty"`
 }
 
 type swaggerItemsObject schemaCore
@@ -88,19 +130,46 @@ type swaggerResponseObject struct {
 	Schema      swaggerSchemaObject `json:"schema"`
 }
 
+type keyVal struct {
+	Key   string
+	Value interface{}
+}
+
+type swaggerSchemaObjectProperties []keyVal
+
+func (op swaggerSchemaObjectProperties) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	buf.WriteString("{")
+	for i, kv := range op {
+		if i != 0 {
+			buf.WriteString(",")
+		}
+		key, err := json.Marshal(kv.Key)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(key)
+		buf.WriteString(":")
+		val, err := json.Marshal(kv.Value)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(val)
+	}
+
+	buf.WriteString("}")
+	return buf.Bytes(), nil
+}
+
 // http://swagger.io/specification/#schemaObject
 type swaggerSchemaObject struct {
 	schemaCore
 	// Properties can be recursively defined
-	Properties           map[string]swaggerSchemaObject `json:"properties,omitempty"`
-	AdditionalProperties *swaggerSchemaObject           `json:"additionalProperties,omitempty"`
-	Items                *swaggerItemsObject            `json:"items,omitempty"`
+	Properties           swaggerSchemaObjectProperties `json:"properties,omitempty"`
+	AdditionalProperties *swaggerSchemaObject          `json:"additionalProperties,omitempty"`
 
-	// If the item is an enumeration include a list of all the *NAMES* of the
-	// enum values.  I'm not sure how well this will work but assuming all enums
-	// start from 0 index it will be great. I don't think that is a good assumption.
-	Enum    []string `json:"enum,omitempty"`
-	Default string   `json:"default,omitempty"`
+	Description string `json:"description,omitempty"`
+	Title       string `json:"title,omitempty"`
 }
 
 // http://swagger.io/specification/#referenceObject

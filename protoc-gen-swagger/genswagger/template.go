@@ -6,11 +6,116 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
-	"github.com/gengo/grpc-gateway/protoc-gen-grpc-gateway/descriptor"
 	pbdescriptor "github.com/golang/protobuf/protoc-gen-go/descriptor"
+	"github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway/descriptor"
 )
+
+func listEnumNames(enum *descriptor.Enum) (names []string) {
+	for _, value := range enum.GetValue() {
+		names = append(names, value.GetName())
+	}
+	return names
+}
+
+func getEnumDefault(enum *descriptor.Enum) string {
+	for _, value := range enum.GetValue() {
+		if value.GetNumber() == 0 {
+			return value.GetName()
+		}
+	}
+	return ""
+}
+
+// messageToQueryParameters converts a message to a list of swagger query parameters.
+func messageToQueryParameters(message *descriptor.Message, reg *descriptor.Registry, pathParams []descriptor.Parameter) (params []swaggerParameterObject, err error) {
+	for _, field := range message.Fields {
+		p, err := queryParams(message, field, "", reg, pathParams)
+		if err != nil {
+			return nil, err
+		}
+		params = append(params, p...)
+	}
+	return params, nil
+}
+
+// queryParams converts a field to a list of swagger query parameters recuresively.
+func queryParams(message *descriptor.Message, field *descriptor.Field, prefix string, reg *descriptor.Registry, pathParams []descriptor.Parameter) (params []swaggerParameterObject, err error) {
+	// make sure the parameter is not already listed as a path parameter
+	for _, pathParam := range pathParams {
+		if pathParam.Target == field {
+			return nil, nil
+		}
+	}
+	schema := schemaOfField(field, reg)
+	fieldType := field.GetTypeName()
+	if message.File != nil {
+		comments := fieldProtoComments(reg, message, field)
+		if err := updateSwaggerDataFromComments(&schema, comments); err != nil {
+			return nil, err
+		}
+	}
+
+	isEnum := field.GetType() == pbdescriptor.FieldDescriptorProto_TYPE_ENUM
+	items := schema.Items
+	if schema.Type != "" || isEnum {
+		if schema.Type == "object" {
+			return nil, nil // TODO: currently, mapping object in query parameter is not supported
+		}
+		if items != nil && (items.Type == "" || items.Type == "object") && !isEnum {
+			return nil, nil // TODO: currently, mapping object in query parameter is not supported
+		}
+		desc := schema.Description
+		if schema.Title != "" { // merge title because title of parameter object will be ignored
+			desc = strings.TrimSpace(schema.Title + ". " + schema.Description)
+		}
+		param := swaggerParameterObject{
+			Name:        prefix + field.GetName(),
+			Description: desc,
+			In:          "query",
+			Type:        schema.Type,
+			Items:       schema.Items,
+			Format:      schema.Format,
+		}
+		if isEnum {
+			enum, err := reg.LookupEnum("", fieldType)
+			if err != nil {
+				return nil, fmt.Errorf("unknown enum type %s", fieldType)
+			}
+			if items != nil { // array
+				param.Items = &swaggerItemsObject{
+					Type: "string",
+					Enum: listEnumNames(enum),
+				}
+			} else {
+				param.Type = "string"
+				param.Enum = listEnumNames(enum)
+				param.Default = getEnumDefault(enum)
+			}
+			valueComments := enumValueProtoComments(reg, enum)
+			if valueComments != "" {
+				param.Description = strings.TrimLeft(param.Description+"\n\n "+valueComments, "\n")
+			}
+		}
+		return []swaggerParameterObject{param}, nil
+	}
+
+	// nested type, recurse
+	msg, err := reg.LookupMsg("", fieldType)
+	if err != nil {
+		return nil, fmt.Errorf("unknown message type %s", fieldType)
+	}
+	for _, nestedField := range msg.Fields {
+		p, err := queryParams(msg, nestedField, prefix+field.GetName()+".", reg, pathParams)
+		if err != nil {
+			return nil, err
+		}
+		params = append(params, p...)
+	}
+	return params, nil
+}
 
 // findServicesMessagesAndEnumerations discovers all messages and enums defined in the RPC methods of the service.
 func findServicesMessagesAndEnumerations(s []*descriptor.Service, reg *descriptor.Registry, m messageMap, e enumMap) {
@@ -49,7 +154,11 @@ func findNestedMessagesAndEnumerations(message *descriptor.Message, reg *descrip
 }
 
 func renderMessagesAsDefinition(messages messageMap, d swaggerDefinitionsObject, reg *descriptor.Registry) {
-	for _, msg := range messages {
+	for name, msg := range messages {
+		switch name {
+		case ".google.protobuf.Timestamp":
+			continue
+		}
 		if opt := msg.GetOptions(); opt != nil && opt.MapEntry != nil && *opt.MapEntry {
 			continue
 		}
@@ -57,10 +166,20 @@ func renderMessagesAsDefinition(messages messageMap, d swaggerDefinitionsObject,
 			schemaCore: schemaCore{
 				Type: "object",
 			},
-			Properties: make(map[string]swaggerSchemaObject),
 		}
+		msgComments := protoComments(reg, msg.File, msg.Outers, "MessageType", int32(msg.Index))
+		if err := updateSwaggerDataFromComments(&schema, msgComments); err != nil {
+			panic(err)
+		}
+
 		for _, f := range msg.Fields {
-			schema.Properties[f.GetName()] = schemaOfField(f, reg)
+			fieldValue := schemaOfField(f, reg)
+			comments := fieldProtoComments(reg, msg, f)
+			if err := updateSwaggerDataFromComments(&fieldValue, comments); err != nil {
+				panic(err)
+			}
+
+			schema.Properties = append(schema.Properties, keyVal{f.GetName(), fieldValue})
 		}
 		d[fullyQualifiedNameToSwaggerName(msg.FQMN(), reg)] = schema
 	}
@@ -91,8 +210,15 @@ func schemaOfField(f *descriptor.Field, reg *descriptor.Registry) swaggerSchemaO
 
 	switch ft := fd.GetType(); ft {
 	case pbdescriptor.FieldDescriptorProto_TYPE_ENUM, pbdescriptor.FieldDescriptorProto_TYPE_MESSAGE, pbdescriptor.FieldDescriptorProto_TYPE_GROUP:
-		core = schemaCore{
-			Ref: "#/definitions/" + fullyQualifiedNameToSwaggerName(fd.GetTypeName(), reg),
+		if fd.GetTypeName() == ".google.protobuf.Timestamp" && pbdescriptor.FieldDescriptorProto_TYPE_MESSAGE == ft {
+			core = schemaCore{
+				Type:   "string",
+				Format: "date-time",
+			}
+		} else {
+			core = schemaCore{
+				Ref: "#/definitions/" + fullyQualifiedNameToSwaggerName(fd.GetTypeName(), reg),
+			}
 		}
 	default:
 		ftype, format, ok := primitiveSchema(ft)
@@ -106,9 +232,9 @@ func schemaOfField(f *descriptor.Field, reg *descriptor.Registry) swaggerSchemaO
 	case array:
 		return swaggerSchemaObject{
 			schemaCore: schemaCore{
-				Type: "array",
+				Type:  "array",
+				Items: (*swaggerItemsObject)(&core),
 			},
-			Items: (*swaggerItemsObject)(&core),
 		}
 	case object:
 		return swaggerSchemaObject{
@@ -132,31 +258,40 @@ func primitiveSchema(t pbdescriptor.FieldDescriptorProto_Type) (ftype, format st
 	case pbdescriptor.FieldDescriptorProto_TYPE_FLOAT:
 		return "number", "float", true
 	case pbdescriptor.FieldDescriptorProto_TYPE_INT64:
-		return "integer", "int64", true
+		return "string", "int64", true
 	case pbdescriptor.FieldDescriptorProto_TYPE_UINT64:
-		return "integer", "int64", true
+		// 64bit integer types are marshaled as string in the default JSONPb marshaler.
+		// TODO(yugui) Add an option to declare 64bit integers as int64.
+		//
+		// NOTE: uint64 is not a predefined format of integer type in Swagger spec.
+		// So we cannot expect that uint64 is commonly supported by swagger processor.
+		return "string", "uint64", true
 	case pbdescriptor.FieldDescriptorProto_TYPE_INT32:
 		return "integer", "int32", true
 	case pbdescriptor.FieldDescriptorProto_TYPE_FIXED64:
-		return "integer", "int64", true
+		// Ditto.
+		return "string", "uint64", true
 	case pbdescriptor.FieldDescriptorProto_TYPE_FIXED32:
-		return "integer", "int32", true
+		// Ditto.
+		return "integer", "int64", true
 	case pbdescriptor.FieldDescriptorProto_TYPE_BOOL:
 		return "boolean", "boolean", true
 	case pbdescriptor.FieldDescriptorProto_TYPE_STRING:
-		return "string", "string", true
+		// NOTE: in swagger specifition, format should be empty on string type
+		return "string", "", true
 	case pbdescriptor.FieldDescriptorProto_TYPE_BYTES:
 		return "string", "byte", true
 	case pbdescriptor.FieldDescriptorProto_TYPE_UINT32:
+		// Ditto.
 		return "integer", "int64", true
 	case pbdescriptor.FieldDescriptorProto_TYPE_SFIXED32:
 		return "integer", "int32", true
 	case pbdescriptor.FieldDescriptorProto_TYPE_SFIXED64:
-		return "integer", "int32", true
+		return "string", "int64", true
 	case pbdescriptor.FieldDescriptorProto_TYPE_SINT32:
 		return "integer", "int32", true
 	case pbdescriptor.FieldDescriptorProto_TYPE_SINT64:
-		return "integer", "int64", true
+		return "string", "int64", true
 	default:
 		return "", "", false
 	}
@@ -165,23 +300,27 @@ func primitiveSchema(t pbdescriptor.FieldDescriptorProto_Type) (ftype, format st
 // renderEnumerationsAsDefinition inserts enums into the definitions object.
 func renderEnumerationsAsDefinition(enums enumMap, d swaggerDefinitionsObject, reg *descriptor.Registry) {
 	for _, enum := range enums {
-		var enumNames []string
+		enumComments := protoComments(reg, enum.File, enum.Outers, "EnumType", int32(enum.Index))
+
 		// it may be necessary to sort the result of the GetValue function.
-		var defaultValue string
-		for _, value := range enum.GetValue() {
-			enumNames = append(enumNames, value.GetName())
-			if defaultValue == "" && value.GetNumber() == 0 {
-				defaultValue = value.GetName()
-			}
+		enumNames := listEnumNames(enum)
+		defaultValue := getEnumDefault(enum)
+		valueComments := enumValueProtoComments(reg, enum)
+		if valueComments != "" {
+			enumComments = strings.TrimLeft(enumComments+"\n\n "+valueComments, "\n")
+		}
+		enumSchemaObject := swaggerSchemaObject{
+			schemaCore: schemaCore{
+				Type:    "string",
+				Enum:    enumNames,
+				Default: defaultValue,
+			},
+		}
+		if err := updateSwaggerDataFromComments(&enumSchemaObject, enumComments); err != nil {
+			panic(err)
 		}
 
-		d[fullyQualifiedNameToSwaggerName(enum.FQEN(), reg)] = swaggerSchemaObject{
-			schemaCore: schemaCore{
-				Type: "string",
-			},
-			Enum:    enumNames,
-			Default: defaultValue,
-		}
+		d[fullyQualifiedNameToSwaggerName(enum.FQEN(), reg)] = enumSchemaObject
 	}
 }
 
@@ -254,7 +393,7 @@ func templateToSwaggerPath(path string) string {
 		switch char {
 		case '{':
 			// Push on the stack
-			depth += 1
+			depth++
 			buffer += string(char)
 			break
 		case '}':
@@ -262,7 +401,7 @@ func templateToSwaggerPath(path string) string {
 				panic("Encountered } without matching { before it.")
 			}
 			// Pop from the stack
-			depth -= 1
+			depth--
 			buffer += "}"
 		case '/':
 			if depth == 0 {
@@ -293,11 +432,9 @@ func templateToSwaggerPath(path string) string {
 }
 
 func renderServices(services []*descriptor.Service, paths swaggerPathsObject, reg *descriptor.Registry) error {
-	for _, svc := range services {
-		for _, meth := range svc.Methods {
-			if meth.GetClientStreaming() || meth.GetServerStreaming() {
-				return fmt.Errorf(`service uses streaming, which is not currently supported. Maybe you would like to implement it? It wouldn't be that hard and we don't bite. Why don't you send a pull request to https://github.com/gengo/grpc-gateway?`)
-			}
+	// Correctness of svcIdx and methIdx depends on 'services' containing the services in the same order as the 'file.Service' array.
+	for svcIdx, svc := range services {
+		for methIdx, meth := range svc.Methods {
 			for _, b := range meth.Bindings {
 				// Iterate over all the swagger parameters
 				parameters := swaggerParametersObject{}
@@ -329,30 +466,56 @@ func renderServices(services []*descriptor.Service, paths swaggerPathsObject, re
 				}
 				// Now check if there is a body parameter
 				if b.Body != nil {
-					parameters = append(parameters, swaggerParameterObject{
-						Name:     "body",
-						In:       "body",
-						Required: true,
-						Schema: &swaggerSchemaObject{
+					var schema swaggerSchemaObject
+
+					if len(b.Body.FieldPath) == 0 {
+						schema = swaggerSchemaObject{
 							schemaCore: schemaCore{
 								Ref: fmt.Sprintf("#/definitions/%s", fullyQualifiedNameToSwaggerName(meth.RequestType.FQMN(), reg)),
 							},
-						},
+						}
+					} else {
+						lastField := b.Body.FieldPath[len(b.Body.FieldPath)-1]
+						schema = schemaOfField(lastField.Target, reg)
+					}
+
+					desc := ""
+					if meth.GetClientStreaming() {
+						desc = "(streaming inputs)"
+					}
+					parameters = append(parameters, swaggerParameterObject{
+						Name:        "body",
+						Description: desc,
+						In:          "body",
+						Required:    true,
+						Schema:      &schema,
 					})
+				} else if b.HTTPMethod == "GET" {
+					// add the parameters to the query string
+					queryParams, err := messageToQueryParameters(meth.RequestType, reg, b.PathParams)
+					if err != nil {
+						return err
+					}
+					parameters = append(parameters, queryParams...)
 				}
 
 				pathItemObject, ok := paths[templateToSwaggerPath(b.PathTmpl.Template)]
 				if !ok {
 					pathItemObject = swaggerPathItemObject{}
 				}
+
+				methProtoPath := protoPathIndex(reflect.TypeOf((*pbdescriptor.ServiceDescriptorProto)(nil)), "Method")
+				desc := ""
+				if meth.GetServerStreaming() {
+					desc += "(streaming responses)"
+				}
 				operationObject := &swaggerOperationObject{
-					Summary:     fmt.Sprintf("%s.%s", svc.GetName(), meth.GetName()),
 					Tags:        []string{svc.GetName()},
-					OperationId: fmt.Sprintf("%s", meth.GetName()),
+					OperationID: fmt.Sprintf("%s", meth.GetName()),
 					Parameters:  parameters,
 					Responses: swaggerResponsesObject{
-						"default": swaggerResponseObject{
-							Description: "Description",
+						"200": swaggerResponseObject{
+							Description: desc,
 							Schema: swaggerSchemaObject{
 								schemaCore: schemaCore{
 									Ref: fmt.Sprintf("#/definitions/%s", fullyQualifiedNameToSwaggerName(meth.ResponseType.FQMN(), reg)),
@@ -360,6 +523,10 @@ func renderServices(services []*descriptor.Service, paths swaggerPathsObject, re
 							},
 						},
 					},
+				}
+				methComments := protoComments(reg, svc.File, nil, "Service", int32(svcIdx), methProtoPath, int32(methIdx))
+				if err := updateSwaggerDataFromComments(operationObject, methComments); err != nil {
+					panic(err)
 				}
 
 				switch b.HTTPMethod {
@@ -374,6 +541,9 @@ func renderServices(services []*descriptor.Service, paths swaggerPathsObject, re
 					break
 				case "PUT":
 					pathItemObject.Put = operationObject
+					break
+				case "PATCH":
+					pathItemObject.Patch = operationObject
 					break
 				}
 				paths[templateToSwaggerPath(b.PathTmpl.Template)] = pathItemObject
@@ -397,11 +567,17 @@ func applyTemplate(p param) (string, error) {
 		Produces:    []string{"application/json"},
 		Paths:       make(swaggerPathsObject),
 		Definitions: make(swaggerDefinitionsObject),
+		Info: swaggerInfoObject{
+			Title:   *p.File.Name,
+			Version: "version not set",
+		},
 	}
 
 	// Loops through all the services and their exposed GET/POST/PUT/DELETE definitions
 	// and create entries for all of them.
-	renderServices(p.Services, s.Paths, p.reg)
+	if err := renderServices(p.Services, s.Paths, p.reg); err != nil {
+		panic(err)
+	}
 
 	// Find all the service's messages and enumerations that are defined (recursively) and then
 	// write their request and response types out as definition objects.
@@ -411,6 +587,13 @@ func applyTemplate(p param) (string, error) {
 	renderMessagesAsDefinition(m, s.Definitions, p.reg)
 	renderEnumerationsAsDefinition(e, s.Definitions, p.reg)
 
+	// File itself might have some comments and metadata.
+	packageProtoPath := protoPathIndex(reflect.TypeOf((*pbdescriptor.FileDescriptorProto)(nil)), "Package")
+	packageComments := protoComments(p.reg, p.File, nil, "Package", packageProtoPath)
+	if err := updateSwaggerDataFromComments(&s, packageComments); err != nil {
+		panic(err)
+	}
+
 	// We now have rendered the entire swagger object. Write the bytes out to a
 	// string so it can be written to disk.
 	var w bytes.Buffer
@@ -418,4 +601,235 @@ func applyTemplate(p param) (string, error) {
 	enc.Encode(&s)
 
 	return w.String(), nil
+}
+
+// updateSwaggerDataFromComments updates a Swagger object based on a comment
+// from the proto file.
+//
+// First paragraph of a comment is used for summary. Remaining paragraphs of a
+// comment are used for description. If 'Summary' field is not present on the
+// passed swaggerObject, the summary and description are joined by \n\n.
+//
+// If there is a field named 'Info', its 'Summary' and 'Description' fields
+// will be updated instead.
+//
+// If there is no 'Summary', the same behavior will be attempted on 'Title',
+// but only if the last character is not a period.
+func updateSwaggerDataFromComments(swaggerObject interface{}, comment string) error {
+	if len(comment) == 0 {
+		return nil
+	}
+
+	// Figure out what to apply changes to.
+	swaggerObjectValue := reflect.ValueOf(swaggerObject)
+	infoObjectValue := swaggerObjectValue.Elem().FieldByName("Info")
+	if !infoObjectValue.CanSet() {
+		// No such field? Apply summary and description directly to
+		// passed object.
+		infoObjectValue = swaggerObjectValue.Elem()
+	}
+
+	// Figure out which properties to update.
+	summaryValue := infoObjectValue.FieldByName("Summary")
+	descriptionValue := infoObjectValue.FieldByName("Description")
+	usingTitle := false
+	if !summaryValue.CanSet() {
+		summaryValue = infoObjectValue.FieldByName("Title")
+		usingTitle = true
+	}
+
+	// If there is a summary (or summary-equivalent), use the first
+	// paragraph as summary, and the rest as description.
+	if summaryValue.CanSet() {
+		paragraphs := strings.Split(comment, "\n\n")
+
+		summary := strings.TrimSpace(paragraphs[0])
+		description := strings.TrimSpace(strings.Join(paragraphs[1:], "\n\n"))
+		if !usingTitle || summary == "" || summary[len(summary)-1] != '.' {
+			if len(summary) > 0 {
+				summaryValue.Set(reflect.ValueOf(summary))
+			}
+			if len(description) > 0 {
+				if !descriptionValue.CanSet() {
+					return fmt.Errorf("Encountered object type with a summary, but no description")
+				}
+				descriptionValue.Set(reflect.ValueOf(description))
+			}
+			return nil
+		}
+	}
+
+	// There was no summary field on the swaggerObject. Try to apply the
+	// whole comment into description.
+	if descriptionValue.CanSet() {
+		descriptionValue.Set(reflect.ValueOf(comment))
+		return nil
+	}
+
+	return fmt.Errorf("no description nor summary property")
+}
+
+func fieldProtoComments(reg *descriptor.Registry, msg *descriptor.Message, field *descriptor.Field) string {
+	protoPath := protoPathIndex(reflect.TypeOf((*pbdescriptor.DescriptorProto)(nil)), "Field")
+	for i, f := range msg.Fields {
+		if f == field {
+			return protoComments(reg, msg.File, msg.Outers, "MessageType", int32(msg.Index), protoPath, int32(i))
+		}
+	}
+	return ""
+}
+
+func enumValueProtoComments(reg *descriptor.Registry, enum *descriptor.Enum) string {
+	protoPath := protoPathIndex(reflect.TypeOf((*pbdescriptor.EnumDescriptorProto)(nil)), "Value")
+	var comments []string
+	for idx, value := range enum.GetValue() {
+		name := value.GetName()
+		str := protoComments(reg, enum.File, enum.Outers, "EnumType", int32(enum.Index), protoPath, int32(idx))
+		if str != "" {
+			comments = append(comments, name+": "+str)
+		}
+	}
+	if len(comments) > 0 {
+		return "- " + strings.Join(comments, "\n - ")
+	}
+	return ""
+}
+
+func protoComments(reg *descriptor.Registry, file *descriptor.File, outers []string, typeName string, typeIndex int32, fieldPaths ...int32) string {
+	if file.SourceCodeInfo == nil {
+		// Curious! A file without any source code info.
+		// This could be a test that's providing incomplete
+		// descriptor.File information.
+		//
+		// We could simply return no comments, but panic
+		// could make debugging easier.
+		panic("descriptor.File should not contain nil SourceCodeInfo")
+	}
+
+	outerPaths := make([]int32, len(outers))
+	for i := range outers {
+		location := ""
+		if file.Package != nil {
+			location = file.GetPackage()
+		}
+
+		msg, err := reg.LookupMsg(location, strings.Join(outers[:i+1], "."))
+		if err != nil {
+			panic(err)
+		}
+		outerPaths[i] = int32(msg.Index)
+	}
+
+	for _, loc := range file.SourceCodeInfo.Location {
+		if !isProtoPathMatches(loc.Path, outerPaths, typeName, typeIndex, fieldPaths) {
+			continue
+		}
+		comments := ""
+		if loc.LeadingComments != nil {
+			comments = strings.TrimRight(*loc.LeadingComments, "\n")
+			comments = strings.TrimSpace(comments)
+			// TODO(ivucica): this is a hack to fix "// " being interpreted as "//".
+			// perhaps we should:
+			// - split by \n
+			// - determine if every (but first and last) line begins with " "
+			// - trim every line only if that is the case
+			// - join by \n
+			comments = strings.Replace(comments, "\n ", "\n", -1)
+		}
+		return comments
+	}
+	return ""
+}
+
+var messageProtoPath = protoPathIndex(reflect.TypeOf((*pbdescriptor.FileDescriptorProto)(nil)), "MessageType")
+var nestedProtoPath = protoPathIndex(reflect.TypeOf((*pbdescriptor.DescriptorProto)(nil)), "NestedType")
+var packageProtoPath = protoPathIndex(reflect.TypeOf((*pbdescriptor.FileDescriptorProto)(nil)), "Package")
+
+func isProtoPathMatches(paths []int32, outerPaths []int32, typeName string, typeIndex int32, fieldPaths []int32) bool {
+	if typeName == "Package" && typeIndex == packageProtoPath {
+		// path for package comments is just [2], and all the other processing
+		// is too complex for it.
+		if len(paths) == 0 || typeIndex != paths[0] {
+			return false
+		}
+		return true
+	}
+
+	if len(paths) != len(outerPaths)*2+2+len(fieldPaths) {
+		return false
+	}
+
+	typeNameDescriptor := reflect.TypeOf((*pbdescriptor.FileDescriptorProto)(nil))
+	if len(outerPaths) > 0 {
+		if paths[0] != messageProtoPath || paths[1] != outerPaths[0] {
+			return false
+		}
+		paths = paths[2:]
+		outerPaths = outerPaths[1:]
+
+		for i, v := range outerPaths {
+			if paths[i*2] != nestedProtoPath || paths[i*2+1] != v {
+				return false
+			}
+		}
+		paths = paths[len(outerPaths)*2:]
+
+		if typeName == "MessageType" {
+			typeName = "NestedType"
+		}
+		typeNameDescriptor = reflect.TypeOf((*pbdescriptor.DescriptorProto)(nil))
+	}
+
+	if paths[0] != protoPathIndex(typeNameDescriptor, typeName) || paths[1] != typeIndex {
+		return false
+	}
+	paths = paths[2:]
+
+	for i, v := range fieldPaths {
+		if paths[i] != v {
+			return false
+		}
+	}
+	return true
+}
+
+// protoPathIndex returns a path component for google.protobuf.descriptor.SourceCode_Location.
+//
+// Specifically, it returns an id as generated from descriptor proto which
+// can be used to determine what type the id following it in the path is.
+// For example, if we are trying to locate comments related to a field named
+// `Address` in a message named `Person`, the path will be:
+//
+//     [4, a, 2, b]
+//
+// While `a` gets determined by the order in which the messages appear in
+// the proto file, and `b` is the field index specified in the proto
+// file itself, the path actually needs to specify that `a` refers to a
+// message and not, say, a service; and  that `b` refers to a field and not
+// an option.
+//
+// protoPathIndex figures out the values 4 and 2 in the above example. Because
+// messages are top level objects, the value of 4 comes from field id for
+// `MessageType` inside `google.protobuf.descriptor.FileDescriptor` message.
+// This field has a message type `google.protobuf.descriptor.DescriptorProto`.
+// And inside message `DescriptorProto`, there is a field named `Field` with id
+// 2.
+//
+// Some code generators seem to be hardcoding these values; this method instead
+// interprets them from `descriptor.proto`-derived Go source as necessary.
+func protoPathIndex(descriptorType reflect.Type, what string) int32 {
+	field, ok := descriptorType.Elem().FieldByName(what)
+	if !ok {
+		panic(fmt.Errorf("could not find protobuf descriptor type id for %s", what))
+	}
+	pbtag := field.Tag.Get("protobuf")
+	if pbtag == "" {
+		panic(fmt.Errorf("no Go tag 'protobuf' on protobuf descriptor for %s", what))
+	}
+	path, err := strconv.Atoi(strings.Split(pbtag, ",")[1])
+	if err != nil {
+		panic(fmt.Errorf("protobuf descriptor id for %s cannot be converted to a number: %s", what, err.Error()))
+	}
+
+	return int32(path)
 }

@@ -1,11 +1,9 @@
-package main
+package server
 
 import (
-	"flag"
 	"net"
 
-	examples "github.com/gengo/grpc-gateway/examples/examplepb"
-	"github.com/golang/glog"
+	examples "github.com/grpc-ecosystem/grpc-gateway/examples/examplepb"
 	"google.golang.org/grpc"
 )
 
@@ -16,17 +14,12 @@ func Run() error {
 	}
 	s := grpc.NewServer()
 	examples.RegisterEchoServiceServer(s, newEchoServer())
-	examples.RegisterABitOfEverythingServiceServer(s, newABitOfEverythingServer())
 	examples.RegisterFlowCombinationServer(s, newFlowCombinationServer())
+
+	abe := newABitOfEverythingServer()
+	examples.RegisterABitOfEverythingServiceServer(s, abe)
+	examples.RegisterStreamServiceServer(s, abe)
+
 	s.Serve(l)
 	return nil
-}
-
-func main() {
-	flag.Parse()
-	defer glog.Flush()
-
-	if err := Run(); err != nil {
-		glog.Fatal(err)
-	}
 }

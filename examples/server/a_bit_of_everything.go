@@ -1,14 +1,16 @@
-package main
+package server
 
 import (
 	"fmt"
 	"io"
 	"sync"
 
-	examples "github.com/gengo/grpc-gateway/examples/examplepb"
-	sub "github.com/gengo/grpc-gateway/examples/sub"
-	sub2 "github.com/gengo/grpc-gateway/examples/sub2"
 	"github.com/golang/glog"
+	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/golang/protobuf/ptypes/empty"
+	examples "github.com/grpc-ecosystem/grpc-gateway/examples/examplepb"
+	sub "github.com/grpc-ecosystem/grpc-gateway/examples/sub"
+	sub2 "github.com/grpc-ecosystem/grpc-gateway/examples/sub2"
 	"github.com/rogpeppe/fastuuid"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -25,7 +27,12 @@ type _ABitOfEverythingServer struct {
 	m sync.Mutex
 }
 
-func newABitOfEverythingServer() examples.ABitOfEverythingServiceServer {
+type ABitOfEverythingServer interface {
+	examples.ABitOfEverythingServiceServer
+	examples.StreamServiceServer
+}
+
+func newABitOfEverythingServer() ABitOfEverythingServer {
 	return &_ABitOfEverythingServer{
 		v: make(map[string]*examples.ABitOfEverything),
 	}
@@ -53,7 +60,7 @@ func (s *_ABitOfEverythingServer) CreateBody(ctx context.Context, msg *examples.
 	return s.Create(ctx, msg)
 }
 
-func (s *_ABitOfEverythingServer) BulkCreate(stream examples.ABitOfEverythingService_BulkCreateServer) error {
+func (s *_ABitOfEverythingServer) BulkCreate(stream examples.StreamService_BulkCreateServer) error {
 	count := 0
 	ctx := stream.Context()
 	for {
@@ -82,7 +89,7 @@ func (s *_ABitOfEverythingServer) BulkCreate(stream examples.ABitOfEverythingSer
 		"foo": "foo2",
 		"bar": "bar2",
 	}))
-	return stream.SendAndClose(new(examples.EmptyMessage))
+	return stream.SendAndClose(new(empty.Empty))
 }
 
 func (s *_ABitOfEverythingServer) Lookup(ctx context.Context, msg *sub2.IdMessage) (*examples.ABitOfEverything, error) {
@@ -108,7 +115,7 @@ func (s *_ABitOfEverythingServer) Lookup(ctx context.Context, msg *sub2.IdMessag
 	return nil, grpc.Errorf(codes.NotFound, "not found")
 }
 
-func (s *_ABitOfEverythingServer) List(_ *examples.EmptyMessage, stream examples.ABitOfEverythingService_ListServer) error {
+func (s *_ABitOfEverythingServer) List(_ *empty.Empty, stream examples.StreamService_ListServer) error {
 	s.m.Lock()
 	defer s.m.Unlock()
 
@@ -138,7 +145,7 @@ func (s *_ABitOfEverythingServer) List(_ *examples.EmptyMessage, stream examples
 	return nil
 }
 
-func (s *_ABitOfEverythingServer) Update(ctx context.Context, msg *examples.ABitOfEverything) (*examples.EmptyMessage, error) {
+func (s *_ABitOfEverythingServer) Update(ctx context.Context, msg *examples.ABitOfEverything) (*empty.Empty, error) {
 	s.m.Lock()
 	defer s.m.Unlock()
 
@@ -148,10 +155,10 @@ func (s *_ABitOfEverythingServer) Update(ctx context.Context, msg *examples.ABit
 	} else {
 		return nil, grpc.Errorf(codes.NotFound, "not found")
 	}
-	return new(examples.EmptyMessage), nil
+	return new(empty.Empty), nil
 }
 
-func (s *_ABitOfEverythingServer) Delete(ctx context.Context, msg *sub2.IdMessage) (*examples.EmptyMessage, error) {
+func (s *_ABitOfEverythingServer) Delete(ctx context.Context, msg *sub2.IdMessage) (*empty.Empty, error) {
 	s.m.Lock()
 	defer s.m.Unlock()
 
@@ -161,7 +168,20 @@ func (s *_ABitOfEverythingServer) Delete(ctx context.Context, msg *sub2.IdMessag
 	} else {
 		return nil, grpc.Errorf(codes.NotFound, "not found")
 	}
-	return new(examples.EmptyMessage), nil
+	return new(empty.Empty), nil
+}
+
+func (s *_ABitOfEverythingServer) GetQuery(ctx context.Context, msg *examples.ABitOfEverything) (*empty.Empty, error) {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	glog.Info(msg)
+	if _, ok := s.v[msg.Uuid]; ok {
+		s.v[msg.Uuid] = msg
+	} else {
+		return nil, grpc.Errorf(codes.NotFound, "not found")
+	}
+	return new(empty.Empty), nil
 }
 
 func (s *_ABitOfEverythingServer) Echo(ctx context.Context, msg *sub.StringMessage) (*sub.StringMessage, error) {
@@ -172,7 +192,7 @@ func (s *_ABitOfEverythingServer) Echo(ctx context.Context, msg *sub.StringMessa
 	return msg, nil
 }
 
-func (s *_ABitOfEverythingServer) BulkEcho(stream examples.ABitOfEverythingService_BulkEchoServer) error {
+func (s *_ABitOfEverythingServer) BulkEcho(stream examples.StreamService_BulkEchoServer) error {
 	var msgs []*sub.StringMessage
 	for {
 		msg, err := stream.Recv()
@@ -213,4 +233,15 @@ func (s *_ABitOfEverythingServer) DeepPathEcho(ctx context.Context, msg *example
 
 	glog.Info(msg)
 	return msg, nil
+}
+
+func (s *_ABitOfEverythingServer) NoBindings(ctx context.Context, msg *duration.Duration) (*empty.Empty, error) {
+	return nil, nil
+}
+
+func (s *_ABitOfEverythingServer) Timeout(ctx context.Context, msg *empty.Empty) (*empty.Empty, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,15 +10,16 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
-	gw "github.com/gengo/grpc-gateway/examples/examplepb"
-	server "github.com/gengo/grpc-gateway/examples/server"
-	sub "github.com/gengo/grpc-gateway/examples/sub"
-	"github.com/gengo/grpc-gateway/runtime"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/empty"
+	gw "github.com/grpc-ecosystem/grpc-gateway/examples/examplepb"
+	sub "github.com/grpc-ecosystem/grpc-gateway/examples/sub"
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 )
@@ -27,36 +29,17 @@ type errorBody struct {
 	Code  int    `json:"code"`
 }
 
-func TestIntegration(t *testing.T) {
+func TestEcho(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 		return
 	}
 
-	go func() {
-		if err := server.Run(); err != nil {
-			t.Errorf("server.Run() failed with %v; want success", err)
-			return
-		}
-	}()
-	go func() {
-		if err := Run(":8080"); err != nil {
-			t.Errorf("gw.Run() failed with %v; want success", err)
-			return
-		}
-	}()
-
-	time.Sleep(100 * time.Millisecond)
 	testEcho(t, 8080, "application/json")
 	testEchoBody(t)
-	testABECreate(t)
-	testABECreateBody(t)
-	testABEBulkCreate(t)
-	testABELookup(t)
-	testABELookupNotFound(t)
-	testABEList(t)
-	testAdditionalBindings(t)
+}
 
+func TestForwardResponseOption(t *testing.T) {
 	go func() {
 		if err := Run(
 			":8081",
@@ -145,10 +128,10 @@ func testEchoBody(t *testing.T) {
 	}
 
 	if got, want := resp.Header.Get("Grpc-Metadata-Foo"), "foo1"; got != want {
-		t.Errorf("Grpc-Header-Foo was %q, wanted %q", got, want)
+		t.Errorf("Grpc-Metadata-Foo was %q, wanted %q", got, want)
 	}
 	if got, want := resp.Header.Get("Grpc-Metadata-Bar"), "bar1"; got != want {
-		t.Errorf("Grpc-Header-Bar was %q, wanted %q", got, want)
+		t.Errorf("Grpc-Metadata-Bar was %q, wanted %q", got, want)
 	}
 
 	if got, want := resp.Trailer.Get("Grpc-Trailer-Foo"), "foo2"; got != want {
@@ -157,6 +140,23 @@ func testEchoBody(t *testing.T) {
 	if got, want := resp.Trailer.Get("Grpc-Trailer-Bar"), "bar2"; got != want {
 		t.Errorf("Grpc-Trailer-Bar was %q, wanted %q", got, want)
 	}
+}
+
+func TestABE(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+		return
+	}
+
+	testABECreate(t)
+	testABECreateBody(t)
+	testABEBulkCreate(t)
+	testABELookup(t)
+	testABELookupNotFound(t)
+	testABEList(t)
+	testABEBulkEcho(t)
+	testABEBulkEchoZeroLength(t)
+	testAdditionalBindings(t)
 }
 
 func testABECreate(t *testing.T) {
@@ -362,14 +362,14 @@ func testABEBulkCreate(t *testing.T) {
 		t.Logf("%s", buf)
 	}
 
-	var msg gw.EmptyMessage
+	var msg empty.Empty
 	if err := jsonpb.UnmarshalString(string(buf), &msg); err != nil {
 		t.Errorf("jsonpb.UnmarshalString(%s, &msg) failed with %v; want success", buf, err)
 		return
 	}
 
 	if got, want := resp.Header.Get("Grpc-Metadata-Count"), fmt.Sprintf("%d", count); got != want {
-		t.Errorf("Grpc-Header-Count was %q, wanted %q", got, want)
+		t.Errorf("Grpc-Metadata-Count was %q, wanted %q", got, want)
 	}
 
 	if got, want := resp.Trailer.Get("Grpc-Trailer-Foo"), "foo2"; got != want {
@@ -472,6 +472,12 @@ func testABELookupNotFound(t *testing.T) {
 	if got, want := resp.Header.Get("Grpc-Metadata-Uuid"), uuid; got != want {
 		t.Errorf("Grpc-Metadata-Uuid was %s, wanted %s", got, want)
 	}
+	if got, want := resp.Trailer.Get("Grpc-Trailer-Foo"), "foo2"; got != want {
+		t.Errorf("Grpc-Trailer-Foo was %q, wanted %q", got, want)
+	}
+	if got, want := resp.Trailer.Get("Grpc-Trailer-Bar"), "bar2"; got != want {
+		t.Errorf("Grpc-Trailer-Bar was %q, wanted %q", got, want)
+	}
 }
 
 func testABEList(t *testing.T) {
@@ -512,7 +518,7 @@ func testABEList(t *testing.T) {
 
 	value := resp.Header.Get("Grpc-Metadata-Count")
 	if value == "" {
-		t.Errorf("Grpc-Header-Count should not be empty")
+		t.Errorf("Grpc-Metadata-Count should not be empty")
 	}
 
 	count, err := strconv.Atoi(value)
@@ -522,6 +528,116 @@ func testABEList(t *testing.T) {
 
 	if count <= 0 {
 		t.Errorf("count == %d; want > 0", count)
+	}
+}
+
+func testABEBulkEcho(t *testing.T) {
+	reqr, reqw := io.Pipe()
+	var wg sync.WaitGroup
+	var want []*sub.StringMessage
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer reqw.Close()
+		var m jsonpb.Marshaler
+		for i := 0; i < 1000; i++ {
+			msg := sub.StringMessage{Value: proto.String(fmt.Sprintf("message %d", i))}
+			buf, err := m.MarshalToString(&msg)
+			if err != nil {
+				t.Errorf("m.Marshal(%v) failed with %v; want success", &msg, err)
+				return
+			}
+			if _, err := fmt.Fprintln(reqw, buf); err != nil {
+				t.Errorf("fmt.Fprintln(reqw, %q) failed with %v; want success", buf, err)
+				return
+			}
+			want = append(want, &msg)
+		}
+	}()
+
+	url := "http://localhost:8080/v1/example/a_bit_of_everything/echo"
+	req, err := http.NewRequest("POST", url, reqr)
+	if err != nil {
+		t.Errorf("http.NewRequest(%q, %q, reqr) failed with %v; want success", "POST", url, err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Transfer-Encoding", "chunked")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Errorf("http.Post(%q, %q, req) failed with %v; want success", url, "application/json", err)
+		return
+	}
+	defer resp.Body.Close()
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		t.Errorf("resp.StatusCode = %d; want %d", got, want)
+	}
+
+	var got []*sub.StringMessage
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		dec := json.NewDecoder(resp.Body)
+		for i := 0; ; i++ {
+			var item struct {
+				Result json.RawMessage        `json:"result"`
+				Error  map[string]interface{} `json:"error"`
+			}
+			err := dec.Decode(&item)
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				t.Errorf("dec.Decode(&item) failed with %v; want success; i = %d", err, i)
+			}
+			if len(item.Error) != 0 {
+				t.Errorf("item.Error = %#v; want empty; i = %d", item.Error, i)
+				continue
+			}
+			var msg sub.StringMessage
+			if err := jsonpb.UnmarshalString(string(item.Result), &msg); err != nil {
+				t.Errorf("jsonpb.UnmarshalString(%q, &msg) failed with %v; want success", item.Result, err)
+			}
+			got = append(got, &msg)
+		}
+	}()
+
+	wg.Wait()
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got = %v; want %v", got, want)
+	}
+}
+
+func testABEBulkEchoZeroLength(t *testing.T) {
+	url := "http://localhost:8080/v1/example/a_bit_of_everything/echo"
+	req, err := http.NewRequest("POST", url, bytes.NewReader(nil))
+	if err != nil {
+		t.Errorf("http.NewRequest(%q, %q, bytes.NewReader(nil)) failed with %v; want success", "POST", url, err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Transfer-Encoding", "chunked")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Errorf("http.Post(%q, %q, req) failed with %v; want success", url, "application/json", err)
+		return
+	}
+	defer resp.Body.Close()
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		t.Errorf("resp.StatusCode = %d; want %d", got, want)
+	}
+
+	dec := json.NewDecoder(resp.Body)
+	var item struct {
+		Result json.RawMessage        `json:"result"`
+		Error  map[string]interface{} `json:"error"`
+	}
+	if err := dec.Decode(&item); err == nil {
+		t.Errorf("dec.Decode(&item) succeeded; want io.EOF; item = %#v", item)
+	} else if err != io.EOF {
+		t.Errorf("dec.Decode(&item) failed with %v; want success", err)
+		return
 	}
 }
 
@@ -579,5 +695,25 @@ func testAdditionalBindings(t *testing.T) {
 		if got, want := msg.GetValue(), "hello"; got != want {
 			t.Errorf("msg.GetValue() = %q; want %q", got, want)
 		}
+	}
+}
+
+func TestTimeout(t *testing.T) {
+	url := "http://localhost:8080/v2/example/timeout"
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		t.Errorf(`http.NewRequest("GET", %q, nil) failed with %v; want success`, url, err)
+		return
+	}
+	req.Header.Set("Grpc-Timeout", "10m")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Errorf("http.DefaultClient.Do(%#v) failed with %v; want success", req, err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if got, want := resp.StatusCode, http.StatusRequestTimeout; got != want {
+		t.Errorf("resp.StatusCode = %d; want %d", got, want)
 	}
 }

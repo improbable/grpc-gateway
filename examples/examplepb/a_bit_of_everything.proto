@@ -1,19 +1,27 @@
 syntax = "proto3";
 option go_package = "examplepb";
-package gengo.grpc.gateway.examples.examplepb;
+package grpc.gateway.examples.examplepb;
 
 import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/duration.proto";
 import "examples/sub/message.proto";
 import "examples/sub2/message.proto";
+import "google/protobuf/timestamp.proto";
 
 // Intentionaly complicated message type to cover much features of Protobuf.
 // NEXT ID: 27
 message ABitOfEverything {
+	// Nested is nested type.
 	message Nested {
+		// name is nested field.
 		string name = 1;
 		uint32 amount = 2;
+		// DeepEnum is one or zero.
 		enum DeepEnum {
+			// FALSE is false.
 			FALSE = 0;
+			// TRUE is true.
 			TRUE = 1;
 		}
 		DeepEnum ok = 3;
@@ -40,7 +48,7 @@ message ABitOfEverything {
 	sint64 sint64_value = 18;
 	repeated string repeated_string_value = 19;
 	oneof oneof_value {
-		EmptyMessage oneof_empty = 20;
+		google.protobuf.Empty oneof_empty = 20;
 		string oneof_string = 21;
 	}
 
@@ -49,14 +57,19 @@ message ABitOfEverything {
 	map<string, Nested> mapped_nested_value = 24;
 
 	string nonConventionalNameValue = 26;
+
+	google.protobuf.Timestamp timestamp_value = 27;
+
+        // repeated enum value. it is comma-separated in query
+	repeated NumericEnum repeated_enum_value = 28;
 }
 
-message EmptyMessage {
-}
-
+// NumericEnum is one or zero.
 enum NumericEnum {
+	// ZERO means 0
 	ZERO = 0;
-	ONE = 1;
+	// ONE means 1
+	ONE  = 1;
 }
 
 service ABitOfEverythingService {
@@ -72,34 +85,28 @@ service ABitOfEverythingService {
 			body: "*"
 		};
 	}
-	rpc BulkCreate(stream ABitOfEverything) returns (EmptyMessage) {
-		option (google.api.http) = {
-			post: "/v1/example/a_bit_of_everything/bulk"
-			body: "*"
-		};
-	}
 	rpc Lookup(sub2.IdMessage) returns (ABitOfEverything) {
 		option (google.api.http) = {
 			get: "/v1/example/a_bit_of_everything/{uuid}"
 		};
 	}
-	rpc List(EmptyMessage) returns (stream ABitOfEverything) {
-		option (google.api.http) = {
-			get: "/v1/example/a_bit_of_everything"
-		};
-	}
-	rpc Update(ABitOfEverything) returns (EmptyMessage) {
+	rpc Update(ABitOfEverything) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
 			put: "/v1/example/a_bit_of_everything/{uuid}"
 			body: "*"
 		};
 	}
-	rpc Delete(sub2.IdMessage) returns (EmptyMessage) {
+	rpc Delete(sub2.IdMessage) returns (google.protobuf.Empty) {
 		option (google.api.http) = {
 			delete: "/v1/example/a_bit_of_everything/{uuid}"
 		};
 	}
-	rpc Echo(gengo.grpc.gateway.examples.sub.StringMessage) returns (gengo.grpc.gateway.examples.sub.StringMessage) {
+	rpc GetQuery(ABitOfEverything) returns (google.protobuf.Empty) {
+		option (google.api.http) = {
+			get: "/v1/example/a_bit_of_everything/query/{uuid}"
+		};
+	}
+	rpc Echo(grpc.gateway.examples.sub.StringMessage) returns (grpc.gateway.examples.sub.StringMessage) {
 		option (google.api.http) = {
 			get: "/v1/example/a_bit_of_everything/echo/{value}"
 			additional_bindings {
@@ -111,16 +118,20 @@ service ABitOfEverythingService {
 			}
 		};
 	}
-	rpc BulkEcho(stream gengo.grpc.gateway.examples.sub.StringMessage) returns (stream gengo.grpc.gateway.examples.sub.StringMessage) {
-		option (google.api.http) = {
-			post: "/v1/example/a_bit_of_everything/echo"
-			body: "*"
-		};
-	}
 	rpc DeepPathEcho(ABitOfEverything) returns (ABitOfEverything) {
 		option (google.api.http) = {
 			post: "/v1/example/a_bit_of_everything/{single_nested.name}"
 			body: "*"
 		};
 	}
+	rpc NoBindings(google.protobuf.Duration) returns (google.protobuf.Empty) {}
+	rpc Timeout(google.protobuf.Empty) returns (google.protobuf.Empty) {
+		option (google.api.http) = {
+			get: "/v2/example/timeout",
+		};
+	}
+}
+
+service AnotherServiceWithNoBindings {
+	rpc NoBindings(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
