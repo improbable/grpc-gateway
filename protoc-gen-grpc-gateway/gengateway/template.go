@@ -117,8 +117,6 @@ func applyTemplate(p param) (string, error) {
 		UseRequestContext: p.UseRequestContext,
 	}
 
-	handlerBuf.WriteTo(w)
-
 	if err := trailerTemplate.Execute(w, tp); err != nil {
 		return "", err
 	}
