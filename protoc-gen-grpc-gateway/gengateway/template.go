@@ -156,8 +156,6 @@ func applyTemplate(p param, reg *descriptor.Registry) (string, error) {
 		RegisterFuncSuffix: p.RegisterFuncSuffix,
 	}
 
-	handlerBuf.WriteTo(w)
-
 	if err := trailerTemplate.Execute(w, tp); err != nil {
 		return "", err
 	}
