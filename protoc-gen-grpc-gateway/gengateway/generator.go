@@ -106,7 +106,7 @@ func (g *generator) Generate(targets []*descriptor.File) ([]*plugin.CodeGenerato
 		}
 		name := file.GetName()
 		if g.pathType == pathTypeImport && file.GoPkg.Path != "" {
-			name = fmt.Sprintf("%s/%s", file.GoPkg.Path, filepath.Base(name))
+			// name = fmt.Sprintf("%s/%s", file.GoPkg.Path, filepath.Base(name))
 		}
 		ext := filepath.Ext(name)
 		base := strings.TrimSuffix(name, ext)
