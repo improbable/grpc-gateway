@@ -66,7 +66,7 @@ func main() {
 		}
 	}
 
-	g := gengateway.New(reg, *useRequestContext, *registerFuncSuffix, *pathType, *generate_empty)
+	g := gengateway.New(reg, *useRequestContext, *registerFuncSuffix, *pathType, *generateEmpty)
 
 	if *grpcAPIConfiguration != "" {
 		if err := reg.LoadGrpcAPIServiceFromYAML(*grpcAPIConfiguration); err != nil {
